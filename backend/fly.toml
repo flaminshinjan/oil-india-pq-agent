@@ -1,0 +1,43 @@
+app = "oil-india-pq-backend"
+primary_region = "bom"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  CHROMA_DIR = "/app/chroma_db"
+  EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+  ANTHROPIC_MODEL = "claude-sonnet-4-5-20250929"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Keep one machine always warm — the runtime (torch + sentence-transformers
+  # + chromadb) needs ~50s to import, so we never want users to hit a cold
+  # start. Auto-start is left on so Fly can scale up under load.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 20
+    hard_limit = 30
+
+[[http_service.checks]]
+  # Generous grace period because cold imports take ~50s. The interval+
+  # timeout combo gives the app plenty of room before Fly considers a
+  # machine unhealthy and re-creates it.
+  interval = "30s"
+  timeout = "10s"
+  grace_period = "120s"
+  method = "GET"
+  path = "/api/health"
+
+# The image bakes in the embedding model + Chroma store. Cold start
+# memory is ~700MB; give it 2GB headroom to avoid OOM on a tool burst.
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "2gb"

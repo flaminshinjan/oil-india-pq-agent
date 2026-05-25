@@ -1,0 +1,62 @@
+# ---- Secrets (must never be committed) ----
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+backend/.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---- Vector store (derived; regenerate with `python -m app.ingest --reset`) ----
+backend/chroma_db/
+
+# ---- Node / Next.js ----
+node_modules/
+.next/
+out/
+.npm/
+
+# ---- TypeScript ----
+*.tsbuildinfo
+
+# ---- Logs ----
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ---- OS / editor / agent state ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.claude/
+*.swp
+*~
+
+# ---- Office temp files (Word/Excel lock files) ----
+~$*
+~WRL*.tmp
+*.tmp
+
+# ---- Local scratch ----
+/tmp_*
+*.local
+
+# ---- Heavy corpus assets ----
+# The PDF versions of PQ replies are mostly scanned images of the
+# corresponding .docx files. The agent uses the .docx (real text) so the
+# PDFs are redundant. Keeping them out keeps the repo small (~27 MB
+# instead of ~410 MB).
+Parliamentary Replies/**/*.pdf
