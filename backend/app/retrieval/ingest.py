@@ -18,7 +18,7 @@ from pathlib import Path
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from tqdm import tqdm
 
-from .config import settings
+from ..config import settings
 from .extractors import extract, iter_documents, Chunk
 from .vectorstore import get_store
 
@@ -88,7 +88,14 @@ def _build_header(rel: Path, kind: str, session: str) -> str:
     return " | ".join(bits)
 
 
-def ingest(root: Path, *, reset: bool = False) -> None:
+def _collect_from_root(root: Path, label: str) -> tuple[list[Path], str]:
+    files = list(iter_documents(root))
+    files = [f for f in files if "IGNORE" not in f.relative_to(root).parts]
+    print(f"[ingest] {len(files)} files under {root} ({label})")
+    return files, label
+
+
+def ingest(root: Path, *, reset: bool = False, also_runtime: Path | None = None) -> None:
     store = get_store()
 
     if reset:
@@ -98,52 +105,59 @@ def ingest(root: Path, *, reset: bool = False) -> None:
             store.client.delete_collection(settings.db_collection)
         except Exception:
             pass
-        # Recreate
         from .vectorstore import VectorStore
-        global _store  # noqa
         store = VectorStore()
 
-    files = list(iter_documents(root))
-    # Drop IGNORE/ subtree
-    files = [f for f in files if "IGNORE" not in f.relative_to(root).parts]
+    file_groups: list[tuple[list[Path], Path]] = []
+    primary_files, _ = _collect_from_root(root, "corpus")
+    file_groups.append((primary_files, root))
 
-    print(f"[ingest] {len(files)} files under {root}")
+    # Also pull in runtime-bundled data (DB Excel + synthetic JSON) so the
+    # agents can RAG over everything from a single Chroma instance.
+    if also_runtime and also_runtime.exists() and also_runtime.resolve() != root.resolve():
+        runtime_files, _ = _collect_from_root(also_runtime, "runtime")
+        file_groups.append((runtime_files, also_runtime))
+
     pq_texts: list[str] = []
     pq_metas: list[dict] = []
     db_texts: list[str] = []
     db_metas: list[dict] = []
 
-    for path in tqdm(files, desc="extract"):
-        rel = path.relative_to(root)
-        kind = _doc_kind(rel)
-        session = _session_from_path(rel)
-        header = _build_header(rel, kind, session)
+    for files, base in file_groups:
+        for path in tqdm(files, desc=f"extract:{base.name}"):
+            rel = path.relative_to(base)
+            kind = _doc_kind(rel)
+            session = _session_from_path(rel)
+            header = _build_header(rel, kind, session)
 
-        chunks = extract(path)
-        if not chunks:
-            continue
+            chunks = extract(path)
+            if not chunks:
+                continue
 
-        is_db = rel.parts[0] == "DB"
-        texts, metas = _split_chunks(chunks, header, keep_whole=is_db)
-        common = {
-            "source": rel.as_posix(),
-            "filename": path.name,
-            "session": session,
-            "kind": kind,
-        }
-        for m in metas:
-            m.update(common)
+            # Anything under DB/ or synthetic/ goes into the structured
+            # collection — small chunks, kept whole. Everything else (PQs)
+            # is split.
+            top = rel.parts[0] if rel.parts else ""
+            is_structured = top in ("DB", "synthetic")
+            texts, metas = _split_chunks(chunks, header, keep_whole=is_structured)
+            common = {
+                "source": rel.as_posix(),
+                "filename": path.name,
+                "session": session,
+                "kind": kind if not is_structured else top.lower(),
+            }
+            for m in metas:
+                m.update(common)
 
-        if is_db:
-            db_texts.extend(texts)
-            db_metas.extend(metas)
-        else:
-            pq_texts.extend(texts)
-            pq_metas.extend(metas)
+            if is_structured:
+                db_texts.extend(texts)
+                db_metas.extend(metas)
+            else:
+                pq_texts.extend(texts)
+                pq_metas.extend(metas)
 
     print(f"[ingest] embedding+writing  PQ chunks={len(pq_texts)}  DB chunks={len(db_texts)}")
     t0 = time.time()
-    # Batch to keep memory reasonable
     _batched_add(store, "pq", pq_texts, pq_metas)
     _batched_add(store, "db", db_texts, db_metas)
     print(f"[ingest] done in {time.time() - t0:.1f}s. counts={store.stats()}")
@@ -157,9 +171,11 @@ def _batched_add(store, name: str, texts: list[str], metas: list[dict], batch: i
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", type=Path, default=settings.data_root)
+    ap.add_argument("--runtime", type=Path, default=settings.runtime_data_dir,
+                    help="Also ingest bundled runtime data (DB Excels + synthetic JSON)")
     ap.add_argument("--reset", action="store_true", help="wipe collections first")
     args = ap.parse_args()
-    ingest(args.root, reset=args.reset)
+    ingest(args.root, reset=args.reset, also_runtime=args.runtime)
 
 
 if __name__ == "__main__":

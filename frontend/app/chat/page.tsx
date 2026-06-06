@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import Chat from '@/components/Chat';
-import { Sidebar } from '@/components/Sidebar';
+import Chat from '@/components/chat/Chat';
+import { Sidebar } from '@/components/chat/Sidebar';
 import { useConversations } from '@/lib/storage';
 
 type Health = {

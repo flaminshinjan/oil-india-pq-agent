@@ -33,12 +33,18 @@ RUN python -c "from sentence_transformers import SentenceTransformer; \
 # Ship the pre-ingested Chroma DB.
 COPY chroma_db /app/chroma_db
 
+# Ship the structured-data Excel/Word source files for the deterministic
+# morning-brief scans (production agent reads RRR, drilling agent reads
+# target-vs-actual). These are 4 small files (~100KB total).
+COPY data /app/data
+
 # App code.
 COPY app /app/app
 
 ENV CHROMA_DIR=/app/chroma_db \
+    DATA_ROOT=/app/data \
     EMBED_MODEL=sentence-transformers/all-MiniLM-L6-v2 \
-    ANTHROPIC_MODEL=claude-sonnet-4-5-20250929 \
+    ANTHROPIC_MODEL=claude-haiku-4-5-20251001 \
     PORT=8080
 
 EXPOSE 8080

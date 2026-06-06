@@ -1,0 +1,149 @@
+/* ============================================================
+   Strata · intelligence OS — design tokens & base
+   Editorial serif + grotesque · light, calm, flat
+   ============================================================ */
+
+:root {
+  /* Type — Next/font injects --strata-serif & --strata-sans (see layout.tsx). */
+  --serif: var(--strata-serif), "Newsreader", Georgia, "Times New Roman", serif;
+  --sans:  var(--strata-sans),  "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --w-reg: 400;
+  --w-med: 500;
+
+  /* Surfaces — subtly warm near-white */
+  --bg:        oklch(0.992 0.002 95);
+  --surface:   oklch(1 0 0);
+  --surface-2: oklch(0.985 0.003 95);
+
+  /* Ink — warm near-black, restrained scale */
+  --ink:    oklch(0.255 0.008 70);
+  --ink-2:  oklch(0.46 0.008 70);
+  --ink-3:  oklch(0.605 0.008 70);
+  --ink-4:  oklch(0.72 0.006 70);
+
+  /* Hairlines */
+  --line:    oklch(0.905 0.004 80);
+  --line-2:  oklch(0.86 0.005 80);
+  --hair: 0.5px solid var(--line);
+  --hair-2: 0.5px solid var(--line-2);
+
+  /* Accent — petroleum teal-green (calm) */
+  --accent:     oklch(0.50 0.058 178);
+  --accent-2:   oklch(0.56 0.05 178);
+  --accent-tint:oklch(0.965 0.018 178);
+  --accent-line:oklch(0.90 0.03 178);
+
+  /* Attention — muted amber (the only "warm alarm") */
+  --amber:      oklch(0.70 0.11 72);
+  --amber-ink:  oklch(0.50 0.095 65);
+  --amber-tint: oklch(0.965 0.035 80);
+  --amber-line: oklch(0.89 0.06 78);
+
+  /* Radii */
+  --r-sm: 6px;
+  --r:    9px;
+  --r-lg: 14px;
+
+  /* Reading column */
+  --col: 720px;
+
+  /* Density (driven by Tweaks) */
+  --density: 1;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-weight: var(--w-reg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+#root { min-height: 100vh; }
+
+::selection { background: var(--accent-tint); }
+
+button { font-family: inherit; color: inherit; cursor: pointer; }
+input  { font-family: inherit; color: inherit; }
+
+/* ---- Typographic helpers ---- */
+.serif { font-family: var(--serif); font-weight: var(--w-reg); }
+.eyebrow {
+  font-size: 11.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: var(--w-med);
+  white-space: nowrap;
+}
+.num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+/* ---- Pills ---- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: var(--w-med);
+  letter-spacing: 0.01em;
+  padding: 3px 9px 3px 8px;
+  border-radius: 999px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.pill-amber {
+  color: var(--amber-ink);
+  background: var(--amber-tint);
+  border: 0.5px solid var(--amber-line);
+}
+.pill .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+.tag {
+  font-size: 12px;
+  color: var(--ink-3);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+/* ---- Quiet link ---- */
+.qlink {
+  font-size: 13.5px;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  flex: none;
+  transition: gap .18s ease, color .18s ease;
+}
+.qlink:hover { color: var(--accent-2); gap: 8px; }
+.qlink .arr { transition: transform .18s ease; }
+
+/* ---- Focus ---- */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ---- Motion ---- */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

@@ -198,9 +198,78 @@ def extract_pdf(path: Path) -> list[Chunk]:
     return chunks
 
 
+# ---------- .json (synthetic data feeds) ----------
+
+def extract_json(path: Path) -> list[Chunk]:
+    """Render a synthetic-data JSON as a markdown table chunk.
+
+    The HSE / Procurement / Workforce JSONs are stable shapes (top-level
+    'events' / 'bids' / 'by_function' lists). We dump each list as a
+    markdown table so retrieval can semantic-search it and the LLM can
+    quote the rows.
+    """
+    import json
+
+    chunks: list[Chunk] = []
+    try:
+        data = json.loads(path.read_text())
+    except Exception as e:
+        print(f"[extract_json] {path}: {e}")
+        return []
+
+    def _render_list_of_dicts(name: str, items: list[dict]) -> str:
+        if not items:
+            return ""
+        # Union of keys, preserving order of first occurrence.
+        keys: list[str] = []
+        for it in items:
+            for k in it.keys():
+                if k not in keys:
+                    keys.append(k)
+        header = "| " + " | ".join(keys) + " |"
+        sep = "| " + " | ".join(["---"] * len(keys)) + " |"
+        rows = []
+        for it in items:
+            cells = []
+            for k in keys:
+                v = it.get(k, "")
+                if isinstance(v, (list, dict)):
+                    v = json.dumps(v, ensure_ascii=False)
+                cells.append(_clean(str(v)))
+            rows.append("| " + " | ".join(cells) + " |")
+        return f"{name}\n\n{header}\n{sep}\n" + "\n".join(rows)
+
+    # Top-level: a few well-known list keys plus a generic dump.
+    # Each list becomes its own chunk.
+    if isinstance(data, dict):
+        for key, val in data.items():
+            if isinstance(val, list) and val and isinstance(val[0], dict):
+                md = _render_list_of_dicts(f"{key}:", val)
+                if md:
+                    chunks.append(Chunk(text=md, metadata={"section": key}))
+            elif isinstance(val, dict):
+                md = "\n".join(f"- **{k}**: {json.dumps(v, ensure_ascii=False) if isinstance(v, (dict, list)) else v}"
+                                for k, v in val.items())
+                chunks.append(Chunk(text=f"{key}:\n\n{md}", metadata={"section": key}))
+            elif isinstance(val, (str, int, float, bool)):
+                chunks.append(Chunk(text=f"**{key}**: {val}",
+                                    metadata={"section": key}))
+    elif isinstance(data, list) and data and isinstance(data[0], dict):
+        md = _render_list_of_dicts(path.stem, data)
+        if md:
+            chunks.append(Chunk(text=md, metadata={"section": path.stem}))
+
+    return chunks
+
+
 # ---------- dispatch ----------
 
-EXTENSIONS = {".docx": extract_docx, ".xlsx": extract_xlsx, ".pdf": extract_pdf}
+EXTENSIONS = {
+    ".docx": extract_docx,
+    ".xlsx": extract_xlsx,
+    ".pdf":  extract_pdf,
+    ".json": extract_json,
+}
 
 
 def iter_documents(root: Path) -> Iterable[Path]:

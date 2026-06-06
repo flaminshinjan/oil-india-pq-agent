@@ -13,10 +13,25 @@ load_dotenv(_BACKEND_DIR / ".env")
 class Settings:
     anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
     anthropic_model: str = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929")
+
+    # `data_root` is the SOURCE CORPUS — walked by the ingest CLI to feed
+    # Chroma. Locally this is the full Parliamentary Replies tree. In prod
+    # it's overridden to point at the bundled runtime data.
     data_root: Path = Path(os.getenv(
         "DATA_ROOT",
         "/Users/shinjan/Desktop/oil_india_demo/Parliamentary Replies",
     ))
+
+    # `runtime_data_dir` is what the AGENTS read at runtime — DB/ Excel
+    # files for deterministic scans, synthetic/ JSON for the HSE / Procurement
+    # / Workforce agents. Defaults to backend/data/ which is the bundle the
+    # Docker image ships, so prod always finds it. Locally it also defaults
+    # to backend/data/ (the same files, kept in-repo for the build context).
+    runtime_data_dir: Path = Path(os.getenv(
+        "RUNTIME_DATA_DIR",
+        str(_BACKEND_DIR / "data"),
+    ))
+
     chroma_dir: Path = Path(os.getenv(
         "CHROMA_DIR",
         str(_BACKEND_DIR / "chroma_db"),

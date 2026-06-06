@@ -1,0 +1,44 @@
+{
+  "events": [
+    {
+      "minutes_ago": 9,
+      "site": "Duliajan WO Yard",
+      "asset": "WO Rig #4",
+      "type": "no_hardhat",
+      "confidence": 0.93,
+      "crew_lead": "B. Saikia",
+      "shift": "B"
+    },
+    {
+      "minutes_ago": 47,
+      "site": "Moran GGS-3",
+      "asset": "GGS Gate 2",
+      "type": "no_hi_vis",
+      "confidence": 0.81,
+      "crew_lead": "P. Dutta",
+      "shift": "B"
+    },
+    {
+      "minutes_ago": 124,
+      "site": "Kumchai Field",
+      "asset": "Compressor Skid 2",
+      "type": "no_hardhat",
+      "confidence": 0.88,
+      "crew_lead": "R. Gogoi",
+      "shift": "A"
+    },
+    {
+      "minutes_ago": 218,
+      "site": "Rajasthan Block A",
+      "asset": "Rig RG-12",
+      "type": "no_gloves",
+      "confidence": 0.76,
+      "crew_lead": "S. Rathore",
+      "shift": "A"
+    }
+  ],
+  "site_notes": {
+    "Duliajan WO Yard": "Highest activity site this week — 12 PPE flags TTW",
+    "Moran GGS-3": "Gate camera commissioned 4 weeks ago"
+  }
+}

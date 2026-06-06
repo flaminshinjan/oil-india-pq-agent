@@ -18,7 +18,7 @@ from typing import Annotated, Any
 
 from langchain_core.tools import tool
 
-from .vectorstore import get_store
+from ..retrieval.vectorstore import get_store
 
 
 def _format_hit(hit) -> dict[str, Any]:

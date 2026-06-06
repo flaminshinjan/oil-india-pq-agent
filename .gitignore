@@ -18,8 +18,16 @@ backend/.venv/
 .mypy_cache/
 .ruff_cache/
 
-# ---- Vector store (derived; regenerate with `python -m app.ingest --reset`) ----
+# ---- Vector store (derived; regenerate with `python -m app.retrieval.ingest --reset`) ----
 backend/chroma_db/
+
+# ---- Runtime caches / shared-context store (created on first boot) ----
+backend/atlas_cache/
+backend/atlas_signals.sqlite
+backend/atlas_signals.sqlite-journal
+
+# ---- Reference design (not part of the deployed product) ----
+oil india/
 
 # ---- Node / Next.js ----
 node_modules/

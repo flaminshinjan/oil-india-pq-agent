@@ -7,8 +7,14 @@ primary_region = "bom"
 [env]
   PORT = "8080"
   CHROMA_DIR = "/app/chroma_db"
+  # data_root: corpus location (only relevant if you re-ingest)
+  DATA_ROOT = "/app/data"
+  # runtime_data_dir: where agents read DB/ Excels + synthetic/ JSON at runtime
+  RUNTIME_DATA_DIR = "/app/data"
   EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-  ANTHROPIC_MODEL = "claude-sonnet-4-5-20250929"
+  # Haiku 4.5 — significantly faster output streaming than Sonnet for this
+  # RAG workload, still supports the 64K output ceiling.
+  ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
 
 [http_service]
   internal_port = 8080

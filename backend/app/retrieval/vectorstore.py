@@ -15,7 +15,7 @@ import chromadb
 from chromadb.config import Settings as ChromaSettings
 from sentence_transformers import SentenceTransformer
 
-from .config import settings
+from ..config import settings
 
 
 @dataclass
