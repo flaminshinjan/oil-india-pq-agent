@@ -160,8 +160,8 @@ export default function Landing() {
           <p className="lh-lead">
             Strata reads the annual report, the BRSR, the ESG data book, the
             10-year sheet, the parliamentary replies and the live HSE feed —
-            and answers the question on top of the Chairman’s mind. In
-            writing or out loud, in under a second.
+            and answers whatever is on top of leadership’s mind. In writing
+            or out loud, in under a second.
           </p>
           <div className="lh-cta-row">
             <Link href="/dashboard" className="lh-cta lh-cta-primary">
@@ -211,8 +211,8 @@ export default function Landing() {
           </h2>
           <p className="lh-section-lead">
             Three signals out of dozens, ranked by what actually needs the
-            Chairman’s attention — each with a so-what, a recommended next
-            step, and the underlying source one click away.
+            leadership’s attention — each with a so-what, a recommended
+            next step, and the underlying source one click away.
           </p>
         </div>
         <div className="lh-preview">
@@ -225,7 +225,7 @@ export default function Landing() {
             </div>
             <div className="lh-preview-body">
               <div className="lh-preview-greet">
-                <div className="lh-preview-greet-h serif">Good morning, Chairman.</div>
+                <div className="lh-preview-greet-h serif">Good morning.</div>
                 <div className="lh-preview-greet-sub">
                   The business is steady — <strong>3 things</strong> need your attention today.
                 </div>

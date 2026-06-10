@@ -144,13 +144,12 @@ export default function StrataHome() {
             {domain === 'brief' ? (
               loading || !brief ? (
                 <div className="greeting">
-                  <h1 className="serif greet-h">Good morning, Chairman.</h1>
+                  <h1 className="serif greet-h">Good morning.</h1>
                   <p className="greet-sub">Loading today&rsquo;s brief…</p>
                 </div>
               ) : (
                 <>
                   <Greeting
-                    salutation="Chairman"
                     state="The business is steady"
                     attentionCount={attentionCount}
                   />

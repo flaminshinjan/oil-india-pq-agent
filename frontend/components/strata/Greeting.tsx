@@ -1,15 +1,16 @@
 'use client';
 
 interface Props {
-  salutation: string;        // "Chairman", "CFO", etc.
+  /** Kept for API compatibility but no longer rendered. */
+  salutation?: string;
   state: string;             // "The business is steady"
   attentionCount: number;
 }
 
-export function Greeting({ salutation, state, attentionCount }: Props) {
+export function Greeting({ state, attentionCount }: Props) {
   return (
     <section className="greeting anim">
-      <h1 className="serif greet-h">Good morning, {salutation}.</h1>
+      <h1 className="serif greet-h">Good morning.</h1>
       <p className="greet-sub">
         {state} —{' '}
         {attentionCount === 0 ? (
