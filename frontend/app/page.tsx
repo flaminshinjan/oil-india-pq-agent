@@ -70,15 +70,6 @@ const CAPABILITIES = [
   },
 ];
 
-const STACK = [
-  { label: 'LangGraph',     hint: 'Agent orchestration' },
-  { label: 'Anthropic Claude', hint: 'Reasoning · Haiku 4.5 / Sonnet 4.6' },
-  { label: 'Chroma DB',     hint: 'Vector index over OIL reports' },
-  { label: 'Pipecat',       hint: 'Real-time voice pipeline' },
-  { label: 'Deepgram',      hint: 'Speech-to-text' },
-  { label: 'Cartesia',      hint: 'Text-to-speech' },
-];
-
 export default function Landing() {
   const [health, setHealth] = useState<Health | null>(null);
   const [voice, setVoice] = useState<VoiceStatus | null>(null);
@@ -136,7 +127,6 @@ export default function Landing() {
             <a className="lh-bar-link" href="#preview">Preview</a>
             <a className="lh-bar-link" href="#capabilities">Capabilities</a>
             <a className="lh-bar-link" href="#voice">Voice</a>
-            <a className="lh-bar-link" href="#architecture">Stack</a>
             <Link href="/dashboard" className="lh-cta">
               Open dashboard <span aria-hidden>→</span>
             </Link>
@@ -309,30 +299,6 @@ export default function Landing() {
             44 of the 54 exploratory wells are done — <strong>81% of the FY plan</strong> —
             though meterage is actually a touch ahead of budget at 194,842 m vs 188,666 m.
           </Bubble>
-        </div>
-      </section>
-
-      {/* --- Architecture --- */}
-      <section className="lh-section lh-section-dim" id="architecture">
-        <div className="lh-section-head">
-          <span className="eyebrow">Under the hood</span>
-          <h2 className="serif lh-h2">
-            Open-source orchestration, frontier reasoning, bring-your-own data.
-          </h2>
-          <p className="lh-section-lead">
-            Nothing about Strata is locked to a vendor. Swap the LLM for the
-            next Anthropic / OpenAI / Gemini frontier model, point Chroma at
-            a fresh corpus, change the voice — the orchestration graph
-            stays the same.
-          </p>
-        </div>
-        <div className="lh-stack-grid">
-          {STACK.map(s => (
-            <div className="lh-stack-card" key={s.label}>
-              <div className="lh-stack-label">{s.label}</div>
-              <div className="lh-stack-hint">{s.hint}</div>
-            </div>
-          ))}
         </div>
       </section>
 
