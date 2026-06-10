@@ -1739,33 +1739,54 @@
   height: 64px;
   width: 100%;
   padding: 0 22px;
+  display: grid;
+  align-items: center;
+  /* Three columns — brand left, ticker centre, FY/date right.
+     `minmax(0, 1fr)` lets the centre column truncate gracefully. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+  gap: 18px;
+}
+.topbar-v3 .topbar-brand {
+  justify-self: start;
   display: flex;
   align-items: center;
-  gap: 18px;
-  /* No justify-content; the right cluster uses margin-left:auto so it
-     is unambiguously pinned to the right edge of the viewport. */
+  gap: 11px;
+  min-width: 0;
 }
-.topbar-v3 .topbar-brand { flex: none; }
+.topbar-center {
+  justify-self: center;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
 .topbar-right {
+  justify-self: end;
   display: flex;
   align-items: center;
   gap: 12px;
   min-width: 0;
-  flex: none;
   flex-wrap: nowrap;
   white-space: nowrap;
-  margin-left: auto;
 }
 .topbar-right > * { flex: none; }
 .topbar-v3 .topbar-ticker {
-  flex: 0 0 260px;
-  width: 260px;
+  width: 100%;
   min-width: 0;
-  justify-self: auto;
-  padding: 6px 12px;
+  padding: 6px 14px;
   font-size: 12.5px;
 }
-.topbar-v3 .topbar-ticker .ticker-sev { display: none; }
+/* Show the severity chip again — there's room in the centred column. */
+.topbar-v3 .topbar-ticker .ticker-sev { display: inline-flex; }
+.topbar-v3 .ticker-title {
+  /* Allow the full sentence; only truncate if the column physically
+     can't fit it (very small viewport). */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
 .topbar-v3 .topbar-fy,
 .topbar-v3 .topbar-fy-val,
 .topbar-v3 .topbar-date-v2,
@@ -1776,18 +1797,18 @@
 .topbar-v3 .domain-sel-btn { min-width: 160px; padding: 5px 12px 6px; }
 .topbar-v3 .domain-sel-label { font-size: 13px; }
 
-@media (max-width: 1280px) {
-  .topbar-v3 .topbar-ticker { flex: 0 0 220px; width: 220px; }
-}
 @media (max-width: 1100px) {
-  .topbar-v3 .topbar-ticker { display: none; }
+  /* Drop the ticker on narrow screens to keep the centre clear. */
+  .topbar-v3-in {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .topbar-center { display: none; }
 }
 @media (max-width: 880px) {
   .topbar-v3 .topbar-fy { display: none; }
 }
 @media (max-width: 760px) {
-  .topbar-v3-in { padding: 10px 14px; gap: 10px; flex-wrap: wrap; height: auto; }
-  .topbar-right { flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
+  .topbar-v3-in { padding: 10px 14px; gap: 10px; height: auto; }
   .brand-sub-v2 { display: none; }
 }
 
@@ -3777,38 +3798,47 @@
    Analytics-pane toolbar — dashboard selector lives top-right
    of the right column, no longer in the topbar.
    ============================================================ */
+/* Floating dashboard selector — pins to top-right of the analytics
+ * pane, sits ABOVE the content (z-index) and doesn't take vertical
+ * space in the document flow. */
+.analytics-pane { position: relative; }
 .analytics-toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 12;
+  position: absolute;
+  top: 16px;
+  right: 24px;
+  z-index: 15;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  padding: 14px 0 6px;
-  background: linear-gradient(180deg,
-    var(--bg) 0%,
-    var(--bg) 70%,
-    color-mix(in oklab, var(--bg) 88%, transparent) 100%);
-  margin: 0 auto;
-  width: 100%;
-  max-width: 1180px;
+  pointer-events: none;
 }
+.analytics-toolbar > * { pointer-events: auto; }
 .analytics-toolbar .domain-sel-btn {
   min-width: 200px;
-  background: var(--surface);
+  background: color-mix(in oklab, var(--surface) 92%, transparent);
+  backdrop-filter: blur(10px) saturate(1.05);
   border: 0.5px solid var(--line);
-  box-shadow: 0 6px 14px -8px color-mix(in oklab, var(--ink) 18%, transparent);
+  box-shadow: 0 10px 24px -10px color-mix(in oklab, var(--ink) 22%, transparent),
+              0 2px 6px -2px color-mix(in oklab, var(--ink) 10%, transparent);
 }
 .analytics-toolbar .domain-sel-pop {
-  /* Anchor the pop-over to the selector so it stays under it. */
+  /* Anchor the popover to the selector's right edge. */
   right: 0;
   left: auto;
 }
+/* Push the page title down so it doesn't tuck behind the floating
+ * selector — covers Greeting + domain-head + chat-empty states. */
+.analytics-pane .col {
+  padding-top: calc(72px * var(--density));
+}
 @media (max-width: 880px) {
   .analytics-toolbar {
-    padding: 10px 0 4px;
-    justify-content: stretch;
+    position: sticky;
+    top: 0;
+    right: auto;
+    padding: 10px 14px 6px;
+    background: linear-gradient(180deg, var(--bg) 70%, transparent);
   }
   .analytics-toolbar .domain-sel,
   .analytics-toolbar .domain-sel-btn { width: 100%; }
+  .analytics-pane .col { padding-top: 8px; }
 }

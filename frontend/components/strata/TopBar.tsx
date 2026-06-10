@@ -105,9 +105,8 @@ export function TopBar({
           </div>
         </div>
 
-        {/* Right cluster — ticker + FY + date. Dashboard selector is
-            now rendered inside the analytics pane, top-right. */}
-        <div className="topbar-right">
+        {/* Centered live ticker */}
+        <div className="topbar-center">
           <div className="topbar-ticker" aria-live="polite">
             <div className="ticker-blip">
               <span className="ticker-blip-dot" />
@@ -127,7 +126,10 @@ export function TopBar({
               <span className="ticker-text ticker-text-empty">streaming signals…</span>
             )}
           </div>
+        </div>
 
+        {/* Right cluster — FY + date + icons */}
+        <div className="topbar-right">
           <div className="topbar-fy">
             <span className="topbar-fy-label">FY</span>
             <span className="topbar-fy-val">{fyLabel.replace('FY ', '')}</span>
