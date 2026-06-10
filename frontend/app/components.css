@@ -2783,25 +2783,42 @@
 }
 
 /* Citation pills become buttons */
+/* Citation buttons inherit their sibling-class sizing — DON'T use the
+ * `font: inherit` shorthand here, it resets font-size to the parent
+ * (which is the AI message body, ~14.5 px) and balloons the pills. */
 .cit-button,
 .ref-chip-button,
 .prov-file-button {
   background: var(--surface-2);
   border: 0.5px solid var(--line);
-  font: inherit;
+  font-family: inherit;
+  font-weight: inherit;
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
-.cit-button:hover,
+.cit.cit-button {
+  font-size: 10.5px;
+  background: var(--accent-tint);
+  color: var(--accent);
+  border-color: transparent;
+}
+.cit.cit-button:hover {
+  background: var(--accent-tint);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+.ref-chip-button { font-size: 11px; padding: 2px 9px; border-radius: 999px; }
+.prov-file-button {
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  color: var(--ink-2);
+}
 .ref-chip-button:hover,
 .prov-file-button:hover {
   background: var(--accent-tint);
   border-color: color-mix(in oklab, var(--accent) 35%, var(--line));
   color: var(--accent);
-}
-.prov-file-button {
-  padding: 4px 10px;
-  border-radius: 6px;
 }
 
 @media (max-width: 720px) {
@@ -2825,14 +2842,8 @@
     max-width: 100%;
     padding: 18px 0 24px;
   }
-  .chat-pane {
-    order: 2;
-    width: 100%;
-    border-right: 0;
-    border-top: var(--hair);
-    max-height: 48vh;
-    background: var(--surface);
-  }
+  /* The chat-pane sheet rules live in the dedicated block below; keep
+     the only per-element overrides here that the sheet inherits. */
   .chat-pane-head { padding: 10px 14px 8px; }
   .chat-scroll { padding: 0 14px; }
   .chat-pane-form { padding: 10px 14px 14px; }
@@ -3710,4 +3721,54 @@
   .lh-section, .lh-cta-band, .lh-foot-in { padding-left: 18px; padding-right: 18px; }
   .lh-h1 { font-size: 32px; }
   .lh-preview-body { padding: 18px 18px 22px; }
+}
+
+/* ============================================================
+   Mobile chat-as-sheet
+   On desktop the chat-pane sits inline as the left split column.
+   On mobile (≤880 px) we hide it by default and slide it up as a
+   full-screen sheet when the user taps the chat button in the topbar.
+   ============================================================ */
+.icon-btn-chat { display: none; }              /* hidden on desktop */
+.chat-tool-mobile-close { display: none; }     /* hidden on desktop */
+
+@media (max-width: 880px) {
+  /* Show the topbar trigger only on mobile. */
+  .icon-btn-chat { display: inline-flex; }
+  .chat-tool-mobile-close { display: inline-flex; }
+
+  /* Convert the chat-pane to a fixed full-screen sheet. */
+  .chat-pane {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    border-right: 0;
+    border-top: 0;
+    z-index: 240;
+    transform: translateY(100%);
+    transition: transform 280ms cubic-bezier(.22,.61,.36,1);
+    background: var(--surface);
+    box-shadow: 0 -22px 60px -16px color-mix(in oklab, var(--ink) 30%, transparent);
+    border-top-left-radius: 18px;
+    border-top-right-radius: 18px;
+    overflow: hidden;
+  }
+  .chat-pane.is-mobile-open { transform: translateY(0); }
+
+  /* The split layout keeps the analytics full-bleed; chat is the
+     sheet overlay rather than a stacked drawer. */
+  .split { flex-direction: column; }
+  .analytics-pane {
+    flex: 1;
+    order: 1;
+    overflow-y: auto;
+    padding: 0 14px 18px;
+    min-height: 0;
+  }
+
+  /* When the chat sheet is up, lock the body scroll behind it. */
+  .split.mobile-chat-open .analytics-pane { overflow: hidden; }
 }

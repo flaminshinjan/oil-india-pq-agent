@@ -50,6 +50,7 @@ export default function StrataHome() {
   const [drillKey, setDrillKey] = useState<string | null>(null);
   const [domain, setDomain] = useState<DomainKey>('brief');
   const [previewFile, setPreviewFile] = useState<string | null>(null);
+  const [mobileChat, setMobileChat] = useState(false);
 
   // Load brief + metrics in parallel on mount.
   useEffect(() => {
@@ -126,13 +127,16 @@ export default function StrataHome() {
         dateStr={dateStr}
         domain={domain}
         onDomainChange={setDomain}
+        onOpenChat={() => setMobileChat(true)}
       />
 
-      <div className="split">
+      <div className={'split' + (mobileChat ? ' mobile-chat-open' : '')}>
         <ChatPanel
           chips={SUGGESTION_CHIPS}
           domain={domain}
           onOpenSource={setPreviewFile}
+          mobileOpen={mobileChat}
+          onMobileClose={() => setMobileChat(false)}
         />
 
         <main className="analytics-pane">

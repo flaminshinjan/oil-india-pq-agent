@@ -30,6 +30,10 @@ interface Props {
   /** Called when the user clicks a citation pill — opens the side
    *  panel preview at page level. */
   onOpenSource?: (filename: string) => void;
+  /** Mobile sheet state — driven by the page so we can show a close
+   *  button inside the chat header. Desktop ignores both. */
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 const CHIPS_BY_DOMAIN: Record<string, string[]> = {
@@ -45,7 +49,7 @@ function newId() {
   return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
-export function ChatPanel({ chips, domain, onOpenSource }: Props) {
+export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClose }: Props) {
   const [q, setQ] = useState('');
   const [messages, setMessages] = useState<Msg[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -221,7 +225,7 @@ export function ChatPanel({ chips, domain, onOpenSource }: Props) {
   }
 
   return (
-    <aside className="chat-pane">
+    <aside className={'chat-pane' + (mobileOpen ? ' is-mobile-open' : '')}>
       <div className="chat-pane-head">
         <span className="chat-title">
           <span className="chat-glyph">
@@ -230,6 +234,16 @@ export function ChatPanel({ chips, domain, onOpenSource }: Props) {
           Ask Strata
         </span>
         <div className="chat-tools">
+          {onMobileClose && (
+            <button
+              className="chat-tool chat-tool-mobile-close"
+              onClick={onMobileClose}
+              title="Close chat"
+              aria-label="Close chat"
+            >
+              <Icon name="close" size={16} />
+            </button>
+          )}
           <button className="chat-tool" onClick={newChat} title="New chat">
             <Icon name="plus" size={16} />
           </button>

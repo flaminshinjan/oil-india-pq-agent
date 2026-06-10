@@ -21,6 +21,8 @@ interface Props {
   customiseOpen?: boolean;
   /** Click handler for the "share / export" icon. */
   onShare?: () => void;
+  /** Mobile-only: opens the chat as a full-screen sheet. */
+  onOpenChat?: () => void;
 }
 
 interface Signal {
@@ -45,7 +47,7 @@ const SEVERITY_RANK: Record<Signal['severity'], number> = {
 };
 
 export function TopBar({
-  dateStr, domain, onDomainChange, onCustomise, customiseOpen = false, onShare,
+  dateStr, domain, onDomainChange, onCustomise, customiseOpen = false, onShare, onOpenChat,
 }: Props) {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [tickerIdx, setTickerIdx] = useState(0);
@@ -140,8 +142,19 @@ export function TopBar({
             <span className="date-rest">{dateStr.split(',').slice(1).join(',').trim()}</span>
           </div>
 
+          {onOpenChat && (
+            <button
+              className="icon-btn icon-btn-chat"
+              onClick={onOpenChat}
+              aria-label="Open chat"
+              title="Open Ask Strata"
+            >
+              <Icon name="spark" size={16} />
+            </button>
+          )}
+
           <button
-            className="icon-btn"
+            className="icon-btn icon-btn-share"
             onClick={onShare ?? (() => window.print())}
             aria-label="Share / export"
             title="Share / export this view (Cmd-P)"
