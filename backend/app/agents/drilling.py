@@ -39,5 +39,7 @@ def scan() -> list[signals.Signal]:
             "OIL development drilling target actual FY 2025-26 meterage wells",
             "OIL drilling performance behind plan wells short",
             "OIL workover operations OGPS Rajasthan year-wise",
+            # Strategic 100-well target / multi-year drilling plan
+            "OIL 100 wells annual drilling plan capex annual report",
         ],
     )

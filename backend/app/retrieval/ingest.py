@@ -88,6 +88,34 @@ def _build_header(rel: Path, kind: str, session: str) -> str:
     return " | ".join(bits)
 
 
+_WEB_REPORT_KIND = {
+    "OIL BSR Reports":      "brsr",
+    "ESG Data Books":       "esg",
+    "Oil Financial Reports":"annual_report",
+}
+
+
+def _web_report_kind(rel: Path) -> str:
+    top = rel.parts[0] if rel.parts else ""
+    return _WEB_REPORT_KIND.get(top, "web_report")
+
+
+def _web_report_fy(filename: str) -> str:
+    """Extract a fiscal-year token like '2024-25' or '2020-21' from a filename.
+    Handles patterns: 2024-25 / 2024_25 / 202425 / 2020_21 / FY2024-25."""
+    import re
+    s = filename
+    # match YYYY-YY or YYYY_YY  ('2024-25', '2024_25')
+    m = re.search(r"(20\d{2})[-_](\d{2})", s)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}"
+    # match YYYYYY ('202425')
+    m = re.search(r"(20\d{2})(\d{2})\b", s)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}"
+    return ""
+
+
 def _collect_from_root(root: Path, label: str) -> tuple[list[Path], str]:
     files = list(iter_documents(root))
     files = [f for f in files if "IGNORE" not in f.relative_to(root).parts]
@@ -95,7 +123,13 @@ def _collect_from_root(root: Path, label: str) -> tuple[list[Path], str]:
     return files, label
 
 
-def ingest(root: Path, *, reset: bool = False, also_runtime: Path | None = None) -> None:
+def ingest(
+    root: Path,
+    *,
+    reset: bool = False,
+    also_runtime: Path | None = None,
+    also_web: Path | None = None,
+) -> None:
     store = get_store()
 
     if reset:
@@ -118,12 +152,22 @@ def ingest(root: Path, *, reset: bool = False, also_runtime: Path | None = None)
         runtime_files, _ = _collect_from_root(also_runtime, "runtime")
         file_groups.append((runtime_files, also_runtime))
 
+    # Pull in publicly-available web reports (annual reports, BRSR, ESG
+    # data books) — these enrich the agent's narrative context for
+    # strategic-target questions, sustainability metrics, LTIFR, etc.
+    if also_web and also_web.exists():
+        web_files, _ = _collect_from_root(also_web, "web")
+        file_groups.append((web_files, also_web))
+
     pq_texts: list[str] = []
     pq_metas: list[dict] = []
     db_texts: list[str] = []
     db_metas: list[dict] = []
 
+    web_root_name = also_web.name if also_web else ""
+
     for files, base in file_groups:
+        is_web_root = also_web is not None and base.resolve() == also_web.resolve()
         for path in tqdm(files, desc=f"extract:{base.name}"):
             rel = path.relative_to(base)
             kind = _doc_kind(rel)
@@ -135,16 +179,31 @@ def ingest(root: Path, *, reset: bool = False, also_runtime: Path | None = None)
                 continue
 
             # Anything under DB/ or synthetic/ goes into the structured
-            # collection — small chunks, kept whole. Everything else (PQs)
-            # is split.
+            # collection — small chunks, kept whole. Web reports + PQs go
+            # into the narrative collection, with the splitter applied.
             top = rel.parts[0] if rel.parts else ""
             is_structured = top in ("DB", "synthetic")
             texts, metas = _split_chunks(chunks, header, keep_whole=is_structured)
+
+            # Tag web-report chunks so RAG hits expose where they came from.
+            if is_web_root:
+                report_kind = _web_report_kind(rel)
+                report_fy = _web_report_fy(path.name)
+                doc_kind = "web_report"
+                doc_session = report_kind
+            else:
+                report_kind = ""
+                report_fy = ""
+                doc_kind = kind if not is_structured else top.lower()
+                doc_session = session
+
             common = {
                 "source": rel.as_posix(),
                 "filename": path.name,
-                "session": session,
-                "kind": kind if not is_structured else top.lower(),
+                "session": doc_session,
+                "kind": doc_kind,
+                "report_kind": report_kind,
+                "report_fy": report_fy,
             }
             for m in metas:
                 m.update(common)
@@ -173,9 +232,12 @@ def main() -> None:
     ap.add_argument("--root", type=Path, default=settings.data_root)
     ap.add_argument("--runtime", type=Path, default=settings.runtime_data_dir,
                     help="Also ingest bundled runtime data (DB Excels + synthetic JSON)")
+    ap.add_argument("--web", type=Path,
+                    default=Path("/Users/shinjan/Desktop/oil_india_demo/Oil Web Data Files"),
+                    help="Also ingest public web reports (annual / BRSR / ESG)")
     ap.add_argument("--reset", action="store_true", help="wipe collections first")
     args = ap.parse_args()
-    ingest(args.root, reset=args.reset, also_runtime=args.runtime)
+    ingest(args.root, reset=args.reset, also_runtime=args.runtime, also_web=args.web)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,7 @@
 'use client';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
 import { Icon } from './Icon';
 
 export interface BriefCardData {
@@ -18,6 +21,12 @@ interface Props {
   onWhy?: (card: BriefCardData) => void;
   onPin?: (id: string) => void;
   onMute?: (id: string) => void;
+}
+
+function stripMd(s: string): string {
+  // Headlines are styled by .bc-head; strip inline ** so they don't show
+  // literally and avoid forcing ReactMarkdown into a heading context.
+  return s.replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1');
 }
 
 export function BriefCard({ card, index, state, onWhy, onPin, onMute }: Props) {
@@ -60,16 +69,24 @@ export function BriefCard({ card, index, state, onWhy, onPin, onMute }: Props) {
         </span>
       </div>
 
-      <h2 className="serif bc-head">{card.headline}</h2>
+      <h2 className="serif bc-head">{stripMd(card.headline)}</h2>
 
       {!muted && (
         <>
-          <p className="bc-sowhat">{card.soWhat}</p>
+          <div className="bc-sowhat bc-md">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {card.soWhat}
+            </ReactMarkdown>
+          </div>
           <div className="bc-foot">
             {card.step && (
               <div className="bc-step">
                 <span className="step-label">Recommended</span>
-                <span className="step-text">{card.step}</span>
+                <div className="step-text bc-md">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {card.step}
+                  </ReactMarkdown>
+                </div>
               </div>
             )}
             {card.cta && onWhy && (

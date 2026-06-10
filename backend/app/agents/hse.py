@@ -80,6 +80,9 @@ def scan() -> list[signals.Signal]:
         queries=[
             "OIL safety PPE compliance hard-hat incidents",
             "OIL HSE policy near miss reporting",
+            # Pull canonical safety metrics from BRSR / ESG data books.
+            "OIL LTIFR lost time injury frequency rate BRSR",
+            "OIL safety performance fatalities total recordable incident TRIR",
         ],
         extra_context=_live_state_block(),
     )

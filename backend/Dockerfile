@@ -38,6 +38,10 @@ COPY chroma_db /app/chroma_db
 # target-vs-actual). These are 4 small files (~100KB total).
 COPY data /app/data
 
+# Source PDFs (annual reports, BRSR, ESG) the citations link back to.
+# ~75 MB; lets /api/sources/<filename> serve them for inline preview.
+COPY sources /app/sources
+
 # App code.
 COPY app /app/app
 

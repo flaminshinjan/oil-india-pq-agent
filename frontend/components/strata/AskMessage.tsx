@@ -21,27 +21,50 @@ import { ToolRow } from '../chat/ToolCard';
 
 type ToolBlock = Extract<AssistantBlock, { kind: 'tool' }>;
 
-export function AskMessage({ msg }: { msg: AskMsg }) {
+interface AskMessageProps {
+  msg: AskMsg;
+  onOpenSource?: (filename: string) => void;
+}
+
+export function AskMessage({ msg, onOpenSource }: AskMessageProps) {
   if (msg.role === 'user') {
     return (
-      <div className="msg msg-user">
+      <div className={'msg msg-user' + (msg.via === 'voice' ? ' is-voice' : '')}>
         <div className="msg-col">
-          <div className="msg-bubble">{msg.text}</div>
+          <div className="msg-bubble">
+            {msg.via === 'voice' && <VoiceBadge />}
+            {msg.text}
+          </div>
         </div>
       </div>
     );
   }
-  return <AiMessage msg={msg} />;
+  return <AiMessage msg={msg} onOpenSource={onOpenSource} />;
 }
 
-function AiMessage({ msg }: { msg: Extract<AskMsg, { role: 'ai' }> }) {
+function VoiceBadge() {
+  return (
+    <span className="voice-badge" title="Said aloud">
+      <span className="voice-badge-pulse" />
+      voice
+    </span>
+  );
+}
+
+function AiMessage({ msg, onOpenSource }: { msg: Extract<AskMsg, { role: 'ai' }>; onOpenSource?: (f: string) => void }) {
   const blocks = msg.blocks;
   const fullText = blocksToText(blocks);
 
   return (
-    <div className="msg msg-ai">
+    <div className={'msg msg-ai' + (msg.via === 'voice' ? ' is-voice' : '')}>
       <span className="msg-mark"><Icon name="spark" size={14} /></span>
       <div className="msg-col">
+        {msg.via === 'voice' && (
+          <div className="msg-voice-tag">
+            <span className="voice-badge-pulse" />
+            spoken reply
+          </div>
+        )}
         {blocks.length === 0 && msg.streaming ? (
           <div className="msg-bubble msg-typing">
             <span className="answer-typing"><i/><i/><i/></span>
@@ -53,7 +76,7 @@ function AiMessage({ msg }: { msg: Extract<AskMsg, { role: 'ai' }> }) {
         )}
 
         {!msg.streaming && msg.citations.length > 0 && (
-          <Citations citations={msg.citations} />
+          <Citations citations={msg.citations} onOpenSource={onOpenSource} />
         )}
 
         {!msg.streaming && fullText && (
@@ -96,7 +119,7 @@ function renderBlocks(blocks: AssistantBlock[], streaming: boolean) {
   return out;
 }
 
-function Citations({ citations }: { citations: Citation[] }) {
+function Citations({ citations, onOpenSource }: { citations: Citation[]; onOpenSource?: (f: string) => void }) {
   const [open, setOpen] = useState(false);
   const visible = open ? citations : citations.slice(0, 1);
   const hidden = citations.length - visible.length;
@@ -105,13 +128,15 @@ function Citations({ citations }: { citations: Citation[] }) {
     <div className="cit-row">
       <span className="cit-row-label">Sources</span>
       {visible.map((c, i) => (
-        <span
+        <button
           key={i}
-          className="cit"
-          title={`${c.filename}${c.section ? ' · ' + c.section : ''}\n${c.source ?? ''}`}
+          className="cit cit-button"
+          type="button"
+          onClick={() => onOpenSource?.(c.filename)}
+          title={`${c.filename}${c.section ? ' · ' + c.section : ''}\nClick to preview`}
         >
           <span className="cit-name">{c.filename}</span>
-        </span>
+        </button>
       ))}
       {hidden > 0 && (
         <button className="cit cit-more" onClick={() => setOpen(true)}>

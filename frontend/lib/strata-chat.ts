@@ -19,13 +19,14 @@ export interface Citation {
 }
 
 export type AskMessage =
-  | { role: 'user'; text: string; ts: number }
+  | { role: 'user'; text: string; ts: number; via?: 'voice' | 'text' }
   | {
       role: 'ai';
       blocks: AssistantBlock[];
       citations: Citation[];
       streaming: boolean;
       ts: number;
+      via?: 'voice' | 'text';
     };
 
 export interface Thread {

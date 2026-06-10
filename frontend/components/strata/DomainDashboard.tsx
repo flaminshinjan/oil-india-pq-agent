@@ -1,0 +1,375 @@
+'use client';
+/**
+ * Per-domain dashboard — KPI cards, breakdown bars, and a trend chart,
+ * all driven by /api/os/domain/{key}.
+ *
+ * Numbers come straight from OIL's data files (10-yr Excel, FY perf
+ * annexures, synthetic JSON feeds). No filenames are shown — the user
+ * sees metrics, not provenance.
+ *
+ * HSE keeps the live PPE block underneath because the camera-vision
+ * stream is genuinely useful alongside the rolling stats.
+ */
+import { useEffect, useState } from 'react';
+
+import { Drilldown, type DrilldownData } from './Drilldown';
+import { HseDrilldownBlock } from './HseDrilldownBlock';
+import type { DomainKey } from './DomainSelector';
+
+interface Kpi {
+  label: string;
+  value: string;
+  unit?: string;
+  trend?: string;
+  amber?: boolean;
+  note?: string;
+}
+
+interface BreakdownItem {
+  label: string;
+  value: number;
+  share: number;
+  amber?: boolean;
+}
+
+interface Breakdown {
+  title: string;
+  unit?: string;
+  items: BreakdownItem[];
+}
+
+interface TrendSeries {
+  name: string;
+  values: (number | null)[];
+}
+
+interface Trend {
+  label: string;
+  unit?: string;
+  labels: string[];
+  series: TrendSeries[];
+}
+
+interface Payload {
+  key: string;
+  title: string;
+  lead: string;
+  kpis: Kpi[];
+  breakdowns: Breakdown[];
+  trend: Trend | null;
+  highlights: string[];
+  as_of?: string;
+}
+
+interface Props {
+  domain: DomainKey;
+  onOpenSource?: (filename: string) => void;
+}
+
+export function DomainDashboard({ domain, onOpenSource }: Props) {
+  const [data, setData] = useState<Payload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [drill, setDrill] = useState<DrilldownData | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setData(null);
+    setLoading(true);
+    setError(null);
+    fetch(`/api/os/domain/${domain}`)
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled) return;
+        if (d?.error) setError(d.error);
+        else setData(d);
+        setLoading(false);
+      })
+      .catch(e => {
+        if (cancelled) return;
+        setError(String(e?.message ?? e));
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [domain]);
+
+  if (loading) return <DomainSkeleton />;
+
+  if (error || !data) {
+    return (
+      <div className="domain-view">
+        <div className="domain-empty">
+          <h2 className="serif domain-title">Unable to load this dashboard</h2>
+          <p className="domain-empty-sub">{error ?? 'No data returned.'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="domain-view">
+      <header className="domain-head">
+        <span className="eyebrow">{data.title}</span>
+        <h1 className="serif domain-title">{data.title}</h1>
+        <p className="domain-lead">{data.lead}</p>
+      </header>
+
+      {data.kpis && data.kpis.length > 0 && (
+        <section className="domain-kpis">
+          {data.kpis.map((k, i) => (
+            <KpiCard
+              key={i}
+              kpi={k}
+              onOpen={() => setDrill(buildKpiDrill(data, k))}
+            />
+          ))}
+        </section>
+      )}
+
+      {drill && (
+        <Drilldown
+          data={drill}
+          onClose={() => setDrill(null)}
+          onOpenSource={onOpenSource}
+        />
+      )}
+
+      {data.highlights && data.highlights.length > 0 && (
+        <section className="domain-highlights">
+          {data.highlights.map((h, i) => (
+            <p key={i} className="domain-highlight">
+              <span className="domain-highlight-dot" />
+              <span>{h}</span>
+            </p>
+          ))}
+        </section>
+      )}
+
+      {data.trend && data.trend.labels.length > 0 && (
+        <section className="domain-block">
+          <h2 className="serif domain-section-title">Trend</h2>
+          <p className="domain-section-sub">{data.trend.label}</p>
+          <TrendChart trend={data.trend} />
+        </section>
+      )}
+
+      {data.breakdowns && data.breakdowns.length > 0 && (
+        <section className="domain-block">
+          <h2 className="serif domain-section-title">Breakdown</h2>
+          <div className="domain-breakdowns">
+            {data.breakdowns.map((b, i) => (
+              <BreakdownBlock key={i} block={b} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {domain === 'hse' && (
+        <section className="domain-block">
+          <h2 className="serif domain-section-title">Live PPE event feed</h2>
+          <p className="domain-section-sub">
+            Camera-vision pipeline — every deviation surfaced in real time.
+          </p>
+          <HseDrilldownBlock />
+        </section>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- subcomponents ---------------- */
+
+function KpiCard({ kpi, onOpen }: { kpi: Kpi; onOpen?: () => void }) {
+  return (
+    <button
+      type="button"
+      className={'kpi-card' + (kpi.amber ? ' is-amber' : '') + (onOpen ? ' is-clickable' : '')}
+      onClick={onOpen}
+    >
+      <div className="kpi-card-label">{kpi.label}</div>
+      <div className="kpi-card-value-row">
+        <span className="kpi-card-value serif num">{kpi.value}</span>
+        {kpi.unit && <span className="kpi-card-unit">{kpi.unit}</span>}
+      </div>
+      {kpi.trend && <div className="kpi-card-trend">{kpi.trend}</div>}
+      {kpi.note && <div className="kpi-card-note">{kpi.note}</div>}
+    </button>
+  );
+}
+
+/** Build a Drilldown payload for a KPI card click. We re-use the same
+ *  shape the brief-card drilldown uses, packing the dashboard's
+ *  breakdowns + highlights + trend as sections. */
+function buildKpiDrill(payload: Payload, kpi: Kpi): DrilldownData {
+  const sections = [];
+  if (payload.highlights && payload.highlights.length > 0) {
+    sections.push({
+      eyebrow: 'What this means',
+      body: payload.highlights.map(h => `- ${h}`).join('\n'),
+    });
+  }
+  if (payload.breakdowns && payload.breakdowns.length > 0) {
+    payload.breakdowns.forEach(b => {
+      const tbl = ['| Item | Value |', '|---|---:|'];
+      b.items.forEach(it => tbl.push(`| ${it.label} | ${fmtVal(it.value)} ${b.unit ?? ''} |`));
+      sections.push({
+        eyebrow: 'Breakdown',
+        title: b.title,
+        body: tbl.join('\n'),
+      });
+    });
+  }
+  const lead = `${kpi.label}: **${kpi.value}${kpi.unit ? ' ' + kpi.unit : ''}**` +
+    (kpi.trend ? ` — ${kpi.trend}` : '') +
+    (kpi.note ? `\n\n${kpi.note}` : '');
+  return {
+    tag: payload.title,
+    eyebrow: 'KPI detail',
+    title: kpi.label,
+    lead,
+    sections,
+    sources: [],
+    agent: payload.key === 'hse' ? 'hse' : undefined,
+  };
+}
+
+function BreakdownBlock({ block }: { block: Breakdown }) {
+  const maxVal = Math.max(...block.items.map(i => i.value), 1);
+  return (
+    <div className="breakdown-block">
+      <div className="breakdown-title eyebrow">{block.title}</div>
+      {block.items.map((it, i) => (
+        <div className={'breakdown-row' + (it.amber ? ' is-amber' : '')} key={i}>
+          <div className="breakdown-label" title={it.label}>{it.label}</div>
+          <div className="breakdown-track">
+            <div
+              className="breakdown-fill"
+              style={{ width: `${Math.max(2, (it.value / maxVal) * 100)}%` }}
+            />
+          </div>
+          <div className="breakdown-val num">
+            {fmtVal(it.value)}{block.unit ? ' ' : ''}
+            {block.unit && <span className="breakdown-unit">{block.unit}</span>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function fmtVal(v: number): string {
+  if (Math.abs(v) >= 1000) return v.toLocaleString();
+  if (Number.isInteger(v)) return String(v);
+  return v.toFixed(2);
+}
+
+function TrendChart({ trend }: { trend: Trend }) {
+  // Simple SVG line chart — one path per series, normalised together so
+  // they're comparable on the same y-axis. Skips null values.
+  const W = 700;
+  const H = 200;
+  const PAD = { top: 16, right: 16, bottom: 28, left: 36 };
+  const innerW = W - PAD.left - PAD.right;
+  const innerH = H - PAD.top - PAD.bottom;
+  const n = trend.labels.length;
+
+  const allVals = trend.series.flatMap(s => s.values.filter((v): v is number => v != null));
+  if (allVals.length === 0) return null;
+  const min = Math.min(...allVals);
+  const max = Math.max(...allVals);
+  const span = max - min || 1;
+
+  function x(i: number) {
+    if (n <= 1) return PAD.left + innerW / 2;
+    return PAD.left + (i / (n - 1)) * innerW;
+  }
+  function y(v: number) {
+    return PAD.top + innerH - ((v - min) / span) * innerH;
+  }
+
+  const colors = ['var(--accent)', 'var(--amber-ink)'];
+
+  return (
+    <div className="trend-wrap">
+      <svg viewBox={`0 0 ${W} ${H}`} className="trend-svg" role="img"
+           aria-label={trend.label}>
+        {/* horizontal grid */}
+        {[0, 0.25, 0.5, 0.75, 1].map((t, idx) => {
+          const yy = PAD.top + innerH * t;
+          return (
+            <line key={idx} x1={PAD.left} x2={W - PAD.right}
+                  y1={yy} y2={yy} stroke="var(--line)" strokeDasharray="2 4" />
+          );
+        })}
+        {/* x labels */}
+        {trend.labels.map((lbl, i) => (
+          <text key={i} x={x(i)} y={H - 8} textAnchor="middle"
+                fontSize="10" fill="var(--ink-4)"
+                style={{ fontFeatureSettings: '"tnum" 1' }}>
+            {lbl}
+          </text>
+        ))}
+        {/* series */}
+        {trend.series.map((s, si) => {
+          const pts = s.values
+            .map((v, i) => (v == null ? null : `${x(i)},${y(v)}`))
+            .filter(Boolean) as string[];
+          if (pts.length === 0) return null;
+          return (
+            <g key={si}>
+              <polyline
+                points={pts.join(' ')}
+                fill="none"
+                stroke={colors[si % colors.length]}
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {s.values.map((v, i) => v == null ? null : (
+                <circle key={i} cx={x(i)} cy={y(v)} r="2.6"
+                        fill={colors[si % colors.length]} />
+              ))}
+            </g>
+          );
+        })}
+      </svg>
+      <div className="trend-legend">
+        {trend.series.map((s, i) => (
+          <span key={i} className="trend-legend-item">
+            <span className="trend-legend-dot"
+                  style={{ background: colors[i % colors.length] }} />
+            {s.name}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- loading skeleton ---------------- */
+
+function DomainSkeleton() {
+  return (
+    <div className="domain-view">
+      <header className="domain-head">
+        <div className="sk-line sk-eyebrow" />
+        <div className="sk-line sk-title" />
+        <div className="sk-line sk-lead" />
+        <div className="sk-line sk-lead-2" />
+      </header>
+      <section className="domain-kpis">
+        {[0, 1, 2, 3].map(i => (
+          <div key={i} className="kpi-card sk-kpi">
+            <div className="sk-line sk-kpi-label" />
+            <div className="sk-line sk-kpi-value" />
+            <div className="sk-line sk-kpi-trend" />
+          </div>
+        ))}
+      </section>
+      <section className="domain-block">
+        <div className="sk-line sk-section-title" />
+        <div className="sk-block" />
+      </section>
+    </div>
+  );
+}

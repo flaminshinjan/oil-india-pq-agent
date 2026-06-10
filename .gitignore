@@ -68,3 +68,9 @@ Thumbs.db
 # PDFs are redundant. Keeping them out keeps the repo small (~27 MB
 # instead of ~410 MB).
 Parliamentary Replies/**/*.pdf
+
+# "Oil Web Data Files/" is the raw drop of annual / BRSR / ESG PDFs.
+# The deployable copy lives at `backend/sources/`, which IS committed so
+# the Docker build can ship the citation-preview corpus. Don't duplicate
+# the 75 MB in the repo root.
+Oil Web Data Files/

@@ -40,5 +40,8 @@ def scan() -> list[signals.Signal]:
             "OIL 2P oil reserves year-wise MMT decline",
             "OIL Reserve Replacement Ratio RRR by FY",
             "OIL natural gas production trend MMSCM",
+            # Strategic context from annual reports / BRSR
+            "OIL strategic target 4 MMT crude oil 5 BCM natural gas",
+            "OIL chairman vision production roadmap annual report",
         ],
     )

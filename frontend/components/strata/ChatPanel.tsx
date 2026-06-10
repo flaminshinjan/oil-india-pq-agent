@@ -1,18 +1,14 @@
 'use client';
 /**
  * ChatPanel — the persistent "Ask Strata" chat that lives in the left
- * column. Same wire model + rendering primitives as the legacy /chat and
- * the previous AskDock (markdown body via ReactMarkdown, tool chips via
- * the shared ToolRow, citation pills via AskMessage), just rehoused into
- * an always-open pane.
- *
- * Empty state shows suggestion chips and an empty-chat blurb. Once a
- * message is sent the empty state hides and the message column takes over.
+ * column. The history view is a small popover anchored to the clock
+ * button in the header (no longer takes over the whole chat area).
  */
 import { useEffect, useRef, useState } from 'react';
 
 import { Icon } from './Icon';
 import { AskMessage } from './AskMessage';
+import { VoiceButton } from './VoiceButton';
 import {
   applyWireEvent,
   askStrata,
@@ -23,26 +19,44 @@ import {
   type Thread,
 } from '@/lib/strata-chat';
 
+import type { DomainKey } from './DomainSelector';
+
 interface Props {
   chips: string[];
+  /** Currently active dashboard — drives the suggestion-chip set and
+   *  the implicit "what dashboard is the chairman looking at" hint
+   *  sent to the voice pipeline. */
+  domain?: DomainKey;
+  /** Called when the user clicks a citation pill — opens the side
+   *  panel preview at page level. */
+  onOpenSource?: (filename: string) => void;
 }
 
-type View = 'chat' | 'history';
+const CHIPS_BY_DOMAIN: Record<string, string[]> = {
+  brief:       ['How are we tracking vs target?', 'Where are we losing against plan?', 'Biggest risk to reserves?'],
+  production:  ['Are we hitting 4 MMT crude target?', 'Which state is short of plan?', 'What is dragging gas output?'],
+  exploration: ['How many wells are we behind plan?', 'What is the Andaman status?', 'Where is the latest discovery?'],
+  hse:         ['Which site has most PPE flags?', 'How long since last LTI?', 'What is our LTIFR trend?'],
+  hr:          ['Where is attrition highest?', 'Open requisitions by function?', 'How are we tracking on diversity?'],
+  procurement: ['Best vendor for the workover rig PR?', 'Any high-severity deviations?', 'Average payable cycle?'],
+};
 
 function newId() {
   return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
-export function ChatPanel({ chips }: Props) {
+export function ChatPanel({ chips, domain, onOpenSource }: Props) {
   const [q, setQ] = useState('');
   const [messages, setMessages] = useState<Msg[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
-  const [view, setView] = useState<View>('chat');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const historyBtnRef = useRef<HTMLButtonElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => setThreads(loadThreads()), []);
 
@@ -72,7 +86,27 @@ export function ChatPanel({ chips }: Props) {
     }
   }, [messages, busy]);
 
-  const hasMessages = messages.length > 0 || view === 'history';
+  // Close the popover on outside click / Esc.
+  useEffect(() => {
+    if (!historyOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (popoverRef.current?.contains(target)) return;
+      if (historyBtnRef.current?.contains(target)) return;
+      setHistoryOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setHistoryOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [historyOpen]);
+
+  const hasMessages = messages.length > 0;
 
   async function ask(question: string) {
     let id = activeId;
@@ -80,7 +114,7 @@ export function ChatPanel({ chips }: Props) {
       id = newId();
       setActiveId(id);
     }
-    setView('chat');
+    setHistoryOpen(false);
     setQ('');
 
     const historyBefore = messages;
@@ -140,9 +174,32 @@ export function ChatPanel({ chips }: Props) {
     setBusy(false);
     setMessages([]);
     setActiveId(null);
-    setView('chat');
+    setHistoryOpen(false);
     setQ('');
     setTimeout(() => inputRef.current?.focus(), 50);
+  }
+
+  /** Voice session pushes transcripts in here. Only finals become chat
+   *  bubbles — the voice button's pulsing ring is sufficient feedback
+   *  while the user is mid-sentence. */
+  function onVoiceTranscript(text: string, role: 'user' | 'ai', final: boolean) {
+    if (!final) return;
+    if (!activeId) setActiveId(newId());
+    if (role === 'user') {
+      setMessages(m => [...m, { role: 'user', text, ts: Date.now(), via: 'voice' }]);
+    } else {
+      setMessages(m => [
+        ...m,
+        {
+          role: 'ai',
+          blocks: [{ kind: 'text', text }],
+          citations: [],
+          streaming: false,
+          ts: Date.now(),
+          via: 'voice',
+        },
+      ]);
+    }
   }
 
   function openThread(t: Thread) {
@@ -150,7 +207,7 @@ export function ChatPanel({ chips }: Props) {
     setBusy(false);
     setActiveId(t.id);
     setMessages(t.messages);
-    setView('chat');
+    setHistoryOpen(false);
   }
 
   function deleteThread(e: React.MouseEvent, id: string) {
@@ -166,26 +223,23 @@ export function ChatPanel({ chips }: Props) {
   return (
     <aside className="chat-pane">
       <div className="chat-pane-head">
-        {view === 'history' ? (
-          <button className="chat-headbtn" onClick={() => setView('chat')}>
-            <Icon name="back" size={15} /> Back to chat
-          </button>
-        ) : (
-          <span className="chat-title">
-            <span className="chat-glyph">
-              <Icon name="spark" size={14} />
-            </span>
-            Ask Strata
+        <span className="chat-title">
+          <span className="chat-glyph">
+            <Icon name="spark" size={14} />
           </span>
-        )}
+          Ask Strata
+        </span>
         <div className="chat-tools">
           <button className="chat-tool" onClick={newChat} title="New chat">
             <Icon name="plus" size={16} />
           </button>
           <button
-            className={'chat-tool' + (view === 'history' ? ' is-on' : '')}
-            onClick={() => setView(view === 'history' ? 'chat' : 'history')}
+            ref={historyBtnRef}
+            className={'chat-tool' + (historyOpen ? ' is-on' : '')}
+            onClick={() => setHistoryOpen(v => !v)}
             title="History"
+            aria-haspopup="dialog"
+            aria-expanded={historyOpen}
           >
             <Icon name="clock" size={16} />
             {threads.length > 0 && (
@@ -193,51 +247,72 @@ export function ChatPanel({ chips }: Props) {
             )}
           </button>
         </div>
+
+        {historyOpen && (
+          <div
+            className="history-pop"
+            ref={popoverRef}
+            role="dialog"
+            aria-label="Conversation history"
+          >
+            <div className="history-pop-head">
+              <span className="eyebrow">Recent conversations</span>
+              <button
+                className="ghost-btn"
+                onClick={() => setHistoryOpen(false)}
+                title="Close"
+              >
+                <Icon name="close" size={14} />
+              </button>
+            </div>
+            <div className="history-pop-list">
+              {threads.length === 0 ? (
+                <div className="history-empty">
+                  No past conversations yet. Anything you ask is saved here.
+                </div>
+              ) : (
+                threads.map(t => (
+                  <button
+                    key={t.id}
+                    className={
+                      'history-row' + (t.id === activeId ? ' is-active' : '')
+                    }
+                    onClick={() => openThread(t)}
+                  >
+                    <span className="hr-glyph">
+                      <Icon name="spark" size={13} />
+                    </span>
+                    <span className="hr-main">
+                      <span className="hr-title">{t.title}</span>
+                      <span className="hr-meta">
+                        {t.messages.filter(m => m.role === 'user').length}{' '}
+                        {t.messages.filter(m => m.role === 'user').length === 1
+                          ? 'question'
+                          : 'questions'}
+                        {' · '}
+                        {relTime(t.ts)}
+                      </span>
+                    </span>
+                    <span
+                      className="hr-del"
+                      onClick={e => deleteThread(e, t.id)}
+                      title="Delete"
+                    >
+                      <Icon name="trash" size={14} />
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="chat-pane-body">
-        {view === 'history' ? (
-          <div className="chat-scroll history-scroll">
-            {threads.length === 0 ? (
-              <div className="history-empty">
-                No past conversations yet. Anything you ask is saved here.
-              </div>
-            ) : (
-              threads.map(t => (
-                <button
-                  key={t.id}
-                  className={'history-row' + (t.id === activeId ? ' is-active' : '')}
-                  onClick={() => openThread(t)}
-                >
-                  <span className="hr-glyph">
-                    <Icon name="spark" size={13} />
-                  </span>
-                  <span className="hr-main">
-                    <span className="hr-title">{t.title}</span>
-                    <span className="hr-meta">
-                      {t.messages.filter(m => m.role === 'user').length}{' '}
-                      {t.messages.filter(m => m.role === 'user').length === 1
-                        ? 'question'
-                        : 'questions'}
-                      {' · '}
-                      {relTime(t.ts)}
-                    </span>
-                  </span>
-                  <span
-                    className="hr-del"
-                    onClick={e => deleteThread(e, t.id)}
-                    title="Delete"
-                  >
-                    <Icon name="trash" size={14} />
-                  </span>
-                </button>
-              ))
-            )}
-          </div>
-        ) : hasMessages ? (
+        {hasMessages ? (
           <div className="chat-scroll" ref={scrollRef}>
             {messages.map((m, i) => (
-              <AskMessage key={i} msg={m} />
+              <AskMessage key={i} msg={m} onOpenSource={onOpenSource} />
             ))}
           </div>
         ) : (
@@ -248,7 +323,7 @@ export function ChatPanel({ chips }: Props) {
               workforce — grounded in OIL's own data, with sources cited.
             </p>
             <div className="chips">
-              {chips.map(c => (
+              {(CHIPS_BY_DOMAIN[domain || 'brief'] || chips).map(c => (
                 <button key={c} className="chip" onClick={() => ask(c)}>
                   {c}
                 </button>
@@ -276,6 +351,7 @@ export function ChatPanel({ chips }: Props) {
             placeholder={hasMessages ? 'Ask a follow-up…' : 'Ask anything about the business…'}
             aria-label="Ask anything about the business"
           />
+          <VoiceButton onTranscript={onVoiceTranscript} domain={domain} />
           <button
             type="submit"
             className="ask-send"

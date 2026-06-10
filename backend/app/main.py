@@ -19,6 +19,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api import chat as chat_router
 from .api import health as health_router
 from .api import os as os_router
+from .api import sources as sources_router
+from .api import voice as voice_router
 from .config import settings
 from .core import signals as signals_store
 from .orchestrator import brief as brief_module
@@ -38,6 +40,8 @@ app.add_middleware(
 app.include_router(health_router.router)
 app.include_router(chat_router.router)
 app.include_router(os_router.router)
+app.include_router(sources_router.router)
+app.include_router(voice_router.router)
 
 
 # ------------------------------------------------------------------

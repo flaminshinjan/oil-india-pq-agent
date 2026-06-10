@@ -185,6 +185,8 @@ export function buildDrilldown(brief: Brief, whyKey: string): DrilldownData | nu
       lead: brief.headline.body,
       sections,
       sources: uniqueFilenames(allRefs),
+      // Most headline narratives weave Production + Drilling; not HSE.
+      agent: linked.find(s => s.agent === 'hse') ? 'hse' : linked[0]?.agent,
     };
   }
 
@@ -209,6 +211,7 @@ export function buildDrilldown(brief: Brief, whyKey: string): DrilldownData | nu
       lead: main.body,
       sections,
       sources: uniqueFilenames(allRefs),
+      agent: main.agent,
     };
   }
 
@@ -222,6 +225,7 @@ export function buildDrilldown(brief: Brief, whyKey: string): DrilldownData | nu
       lead: sigById.body,
       sections: [],
       sources: uniqueFilenames(sigById.refs ?? []),
+      agent: sigById.agent,
     };
   }
 
