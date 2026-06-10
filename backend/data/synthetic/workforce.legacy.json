@@ -1,0 +1,38 @@
+{
+  "baseline_attrition_pct_5yr": 5.9,
+  "current_period_months": 12,
+  "by_function": [
+    {
+      "function": "Reservoir Engineering",
+      "locations": ["Assam fields"],
+      "ttm_attrition_pct": 8.4,
+      "headcount": 178,
+      "open_reqs": 9,
+      "median_ttf_weeks": 11
+    },
+    {
+      "function": "Drilling Operations",
+      "locations": ["Assam fields", "Rajasthan"],
+      "ttm_attrition_pct": 6.1,
+      "headcount": 412,
+      "open_reqs": 5,
+      "median_ttf_weeks": 8
+    },
+    {
+      "function": "Production Operations",
+      "locations": ["Assam fields"],
+      "ttm_attrition_pct": 4.8,
+      "headcount": 624,
+      "open_reqs": 2,
+      "median_ttf_weeks": 6
+    },
+    {
+      "function": "HSE",
+      "locations": ["All"],
+      "ttm_attrition_pct": 5.5,
+      "headcount": 96,
+      "open_reqs": 3,
+      "median_ttf_weeks": 9
+    }
+  ]
+}

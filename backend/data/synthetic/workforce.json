@@ -1,38 +1,72 @@
 {
-  "baseline_attrition_pct_5yr": 5.9,
-  "current_period_months": 12,
-  "by_function": [
-    {
-      "function": "Reservoir Engineering",
-      "locations": ["Assam fields"],
-      "ttm_attrition_pct": 8.4,
-      "headcount": 178,
-      "open_reqs": 9,
-      "median_ttf_weeks": 11
-    },
-    {
-      "function": "Drilling Operations",
-      "locations": ["Assam fields", "Rajasthan"],
-      "ttm_attrition_pct": 6.1,
-      "headcount": 412,
-      "open_reqs": 5,
-      "median_ttf_weeks": 8
-    },
-    {
-      "function": "Production Operations",
-      "locations": ["Assam fields"],
-      "ttm_attrition_pct": 4.8,
-      "headcount": 624,
-      "open_reqs": 2,
-      "median_ttf_weeks": 6
-    },
-    {
-      "function": "HSE",
-      "locations": ["All"],
-      "ttm_attrition_pct": 5.5,
-      "headcount": 96,
-      "open_reqs": 3,
-      "median_ttf_weeks": 9
-    }
-  ]
+  "_source": "Extracted from OIL India BRSR / ESG / Annual Reports (FY 2020-21 → FY 2024-25). Authoritative values; dashboards read from here so updates ripple through without code changes.",
+
+  "headcount_5yr": [
+    { "fy": "2021-22", "total": 6256, "executives": 1687, "workers": 4569 },
+    { "fy": "2022-23", "total": 6759, "executives": 1772, "workers": 4987 },
+    { "fy": "2023-24", "total": 6671, "executives": 1771, "workers": 4900 },
+    { "fy": "2024-25", "total": 6739, "executives": 1771, "workers": 4968 }
+  ],
+
+  "diversity_fy24": {
+    "women_pct_workforce": 7.64,
+    "women_pct_workforce_fy25": 7.8,
+    "women_pct_all_management": 12.70,
+    "women_pct_junior_management": 37.06,
+    "women_pct_top_management": 7.22,
+    "women_pct_stem": 9.14
+  },
+
+  "reservation_fy24": [
+    { "category": "Scheduled Caste",        "workforce_pct": 12.75, "management_pct": 15.02 },
+    { "category": "Scheduled Tribe",        "workforce_pct": 17.40, "management_pct": 9.03  },
+    { "category": "Other Backward Classes", "workforce_pct": 49.46, "management_pct": 28.23 },
+    { "category": "Minority",               "workforce_pct": 7.60,  "management_pct": 7.28  },
+    { "category": "Person with Disability", "workforce_pct": 3.05,  "management_pct": 2.37  },
+    { "category": "Women",                  "workforce_pct": 9.27,  "management_pct": 12.70 }
+  ],
+
+  "training_fy24": {
+    "executives_total":       1771,
+    "executives_trained":     3217,
+    "executives_participation_pct": 68.14,
+    "executives_hours_m":     57.39,
+    "executives_hours_f":     47.35,
+    "workers_total":          4900,
+    "workers_trained":        3217,
+    "workers_participation_pct":   65.65,
+    "workers_hours_m":        20.75,
+    "workers_hours_f":        20.79,
+    "avg_spend_per_employee_inr":  63898,
+    "avg_spend_per_mgmt_fte_inr":  101835,
+    "technical_hours_per_fte":     46.25,
+    "leadership_hours_per_fte":    38.46,
+    "behavioral_hours_per_fte":    24.35
+  },
+
+  "turnover_pct_5yr": [
+    { "fy": "2019-20", "total": 8.56, "voluntary": 0.26 },
+    { "fy": "2020-21", "total": 7.41, "voluntary": 0.27 },
+    { "fy": "2021-22", "total": 6.45, "voluntary": 0.37 },
+    { "fy": "2022-23", "total": 5.57, "voluntary": 0.39 }
+  ],
+
+  "apprentices_5yr": [
+    { "fy": "2020-21", "count": 702 },
+    { "fy": "2021-22", "count": 559 },
+    { "fy": "2022-23", "count": 457 },
+    { "fy": "2023-24", "count": 489 },
+    { "fy": "2024-25", "count": 859 }
+  ],
+
+  "swabalamban_fy25": {
+    "trained": 660,
+    "placed":  625,
+    "placement_pct": 94.70
+  },
+
+  "performance_review_coverage_pct": {
+    "executives_fy24": 100,
+    "workers_fy24":    100
+  }
 }

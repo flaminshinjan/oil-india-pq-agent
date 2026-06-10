@@ -1,0 +1,22 @@
+{
+  "_source": "Lost-Time Injury Frequency Rate, incidents and fatalities from OIL India BRSR FY 2022-23 / 2023-24 / 2024-25. Per million person-hours worked.",
+
+  "ltifr_5yr": [
+    { "fy": "2021-22", "executives": 0.107, "workers": null },
+    { "fy": "2022-23", "executives": 0,     "workers": 0.462 },
+    { "fy": "2023-24", "executives": 0,     "workers": 0.158 },
+    { "fy": "2024-25", "executives": 0,     "workers": 0.071 }
+  ],
+
+  "incidents_3yr": [
+    { "fy": "2022-23", "recordable_workers": 4, "high_consequence_workers": 3, "fatalities_workers": 0, "fatalities_executives": 0 },
+    { "fy": "2023-24", "recordable_workers": 4, "high_consequence_workers": 3, "fatalities_workers": 1, "fatalities_executives": 0 },
+    { "fy": "2024-25", "recordable_workers": 2, "high_consequence_workers": 2, "fatalities_workers": 0, "fatalities_executives": 0 }
+  ],
+
+  "headlines_fy25": [
+    "Best-ever LTIFR achieved in FY 2024-25 — workers at 0.071 vs 0.462 two years ago.",
+    "Highest number of near-miss reports filed to date — proactive hazard reporting culture growing.",
+    "Multiple operational installations earned 5-Star Work Environment ratings."
+  ]
+}

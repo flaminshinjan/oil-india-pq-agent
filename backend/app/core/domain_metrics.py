@@ -589,6 +589,10 @@ def _drilling_wells() -> list[dict]:
 
 def hse_metrics() -> dict:
     events = (_safe_load_json(SYN_DIR / "ppe_events.json") or {}).get("events", [])
+    safety = _safe_load_json(SYN_DIR / "safety_hr.json") or {}
+    ltifr_rows = safety.get("ltifr_5yr", []) or []
+    incidents = safety.get("incidents_3yr", []) or []
+    safety_headlines = safety.get("headlines_fy25", []) or []
 
     by_site: dict[str, int] = {}
     by_type: dict[str, int] = {}
@@ -610,16 +614,32 @@ def hse_metrics() -> dict:
     total = len(events)
     avg_conf = sum(conf_vals) / len(conf_vals) if conf_vals else None
 
+    latest_ltifr = ltifr_rows[-1] if ltifr_rows else {}
+    prev_ltifr = ltifr_rows[-2] if len(ltifr_rows) >= 2 else {}
+    _, ltifr_yoy = _yoy(latest_ltifr.get("workers"), prev_ltifr.get("workers"))
+
+    latest_inc = incidents[-1] if incidents else {}
+    fatalities = (latest_inc.get("fatalities_workers", 0)
+                  + latest_inc.get("fatalities_executives", 0)) if latest_inc else None
+
     kpis = [
-        _kpi("Open PPE events", str(total), "", "all sites · last 7 days",
+        _kpi("Worker LTIFR",
+             f"{latest_ltifr.get('workers'):.3f}" if latest_ltifr.get("workers") is not None else "—",
+             "per M hrs",
+             ltifr_yoy,
+             note=f"FY{latest_ltifr.get('fy')} actual" if latest_ltifr else "",
+             amber=(latest_ltifr.get("workers") or 0) > 0.2),
+        _kpi("Fatalities (TTM)",
+             str(fatalities) if fatalities is not None else "—",
+             "",
+             f"FY{latest_inc.get('fy')}" if latest_inc else "",
+             amber=(fatalities is not None and fatalities >= 1)),
+        _kpi("Open PPE events", str(total), "",
+             "live · last 7 days",
              amber=total >= 5),
-        _kpi("Last 24 hours", str(last_24h), "", "rolling window",
+        _kpi("Last 24 hours", str(last_24h), "",
+             "CV feed · rolling window",
              amber=last_24h >= 3),
-        _kpi("Sites involved", str(len(by_site)), "",
-             f"top: {max(by_site, key=by_site.get) if by_site else '—'}"),
-        _kpi("Detection confidence",
-             f"{int(round(avg_conf * 100))}%" if avg_conf is not None else "—",
-             "", "CV pipeline avg"),
     ]
 
     TYPE_LABEL = {
@@ -629,9 +649,32 @@ def hse_metrics() -> dict:
         "no_goggles": "No goggles",
     }
     breakdowns = []
+    if ltifr_rows:
+        breakdowns.append({
+            "title": "LTIFR by year — workers vs executives (BRSR)",
+            "unit": "per M hrs",
+            "items": [
+                {"label": f"FY{r['fy']} · workers",
+                 "value": (r.get("workers") if r.get("workers") is not None else 0),
+                 "share": 0,
+                 "amber": (r.get("workers") or 0) > 0.2}
+                for r in ltifr_rows
+            ],
+        })
+    if incidents:
+        breakdowns.append({
+            "title": "Recordable workplace injuries (BRSR)",
+            "unit": "incidents",
+            "items": [
+                {"label": f"FY{r['fy']} · recordable",
+                 "value": r.get("recordable_workers", 0), "share": 0,
+                 "amber": r.get("recordable_workers", 0) >= 3}
+                for r in incidents
+            ],
+        })
     if by_site:
         breakdowns.append({
-            "title": "Events by site",
+            "title": "Live PPE events by site",
             "unit": "events",
             "items": [
                 {"label": k, "value": v, "share": round(v / total, 3) if total else 0}
@@ -640,7 +683,7 @@ def hse_metrics() -> dict:
         })
     if by_type:
         breakdowns.append({
-            "title": "Events by type",
+            "title": "Live PPE events by type",
             "unit": "events",
             "items": [
                 {"label": TYPE_LABEL.get(k, k), "value": v,
@@ -649,6 +692,7 @@ def hse_metrics() -> dict:
             ],
         })
     if by_shift:
+        # rename to mirror the new "live" naming.
         breakdowns.append({
             "title": "Events by shift",
             "unit": "events",
@@ -671,24 +715,25 @@ def hse_metrics() -> dict:
             f"confidence — no model drift suspected."
         )
 
-    # PPE-events trend by minutes-bucket (hours since now, 1-7 day window)
-    # — gives the user a sense of when the flags clustered.
-    HOUR_BUCKETS = [(0, 24), (24, 48), (48, 72), (72, 96), (96, 120),
-                    (120, 144), (144, 168)]
-    bucket_counts = [0] * len(HOUR_BUCKETS)
-    for e in events:
-        m = e.get("minutes_ago") or 0
-        h = m / 60
-        for i, (lo, hi) in enumerate(HOUR_BUCKETS):
-            if lo <= h < hi:
-                bucket_counts[i] += 1
-                break
-    trend = {
-        "label": "PPE events by 24-hour window (last 7 days)",
-        "unit": "events",
-        "labels": [f"-{lo}-{hi}h" for (lo, hi) in HOUR_BUCKETS],
-        "series": [{"name": "events", "values": list(reversed(bucket_counts))}],
-    }
+    # Real LTIFR trend — sourced from BRSR FY 2022-23 → FY 2024-25.
+    # Far more informative than counting PPE events into hour buckets.
+    trend = None
+    if ltifr_rows:
+        trend = {
+            "label": "Worker LTIFR — per million person-hours (BRSR)",
+            "unit": "per M hrs",
+            "labels": [r["fy"] for r in ltifr_rows],
+            "series": [
+                {"name": "Workers",
+                 "values": [r.get("workers") for r in ltifr_rows]},
+                {"name": "Executives",
+                 "values": [r.get("executives") for r in ltifr_rows]},
+            ],
+        }
+
+    # Prepend the BRSR safety headlines so the user sees what's
+    # narratively notable, not just the numbers.
+    highlights = safety_headlines + highlights
 
     return {"kpis": kpis, "breakdowns": breakdowns, "trend": trend,
             "highlights": highlights}
@@ -699,98 +744,150 @@ def hse_metrics() -> dict:
 # ============================================================
 
 def hr_metrics() -> dict:
+    """KPIs sourced from the real numbers extracted from OIL's BRSR /
+    ESG / Annual Reports — no synthetic by-function values."""
     data = _safe_load_json(SYN_DIR / "workforce.json")
-    funcs = data.get("by_function", [])
-    if not funcs:
+    headcount_rows = data.get("headcount_5yr", []) or []
+    diversity = data.get("diversity_fy24", {}) or {}
+    reservation = data.get("reservation_fy24", []) or []
+    training = data.get("training_fy24", {}) or {}
+    turnover = data.get("turnover_pct_5yr", []) or []
+    apprentices = data.get("apprentices_5yr", []) or []
+    swabalamban = data.get("swabalamban_fy25", {}) or {}
+
+    if not headcount_rows:
         return {"kpis": [], "breakdowns": [], "trend": None, "highlights": []}
 
-    total_headcount = sum(f.get("headcount", 0) for f in funcs)
-    total_open = sum(f.get("open_reqs", 0) for f in funcs)
-    baseline = data.get("baseline_attrition_pct_5yr")
-    weighted_attrition = (
-        sum((f.get("ttm_attrition_pct", 0) or 0) * f.get("headcount", 0) for f in funcs)
-        / total_headcount
-    ) if total_headcount else None
-    median_ttf = sorted([f.get("median_ttf_weeks", 0) for f in funcs])[
-        len(funcs) // 2
-    ] if funcs else None
-    attrition_amber = (
-        weighted_attrition is not None and baseline is not None
-        and weighted_attrition > baseline * 1.05
-    )
+    latest_hc = headcount_rows[-1]
+    prev_hc = headcount_rows[-2] if len(headcount_rows) >= 2 else {}
+    _, hc_yoy = _yoy(latest_hc.get("total"), prev_hc.get("total"))
+
+    latest_to = turnover[-1] if turnover else {}
+    prev_to = turnover[-2] if len(turnover) >= 2 else {}
+    _, to_yoy = _yoy(latest_to.get("total"), prev_to.get("total"))
+
+    latest_app = apprentices[-1] if apprentices else {}
+    prev_app = apprentices[-2] if len(apprentices) >= 2 else {}
+    _, app_yoy = _yoy(latest_app.get("count"), prev_app.get("count"))
+
+    women_pct = (diversity.get("women_pct_workforce_fy25")
+                 or diversity.get("women_pct_workforce"))
 
     kpis = [
-        _kpi("Total headcount", f"{total_headcount:,}", "",
-             f"{len(funcs)} functions"),
-        _kpi("TTM attrition",
-             f"{weighted_attrition:.1f}%" if weighted_attrition is not None else "—",
+        _kpi("Total headcount",
+             f"{latest_hc.get('total', 0):,}",
              "",
-             f"baseline {baseline}%" if baseline is not None else "",
-             amber=attrition_amber),
-        _kpi("Open requisitions", str(total_open), "",
-             "across all functions",
-             amber=total_open >= 10),
-        _kpi("Median time-to-fill",
-             f"{median_ttf}" if median_ttf else "—",
-             "weeks", "across functions"),
+             hc_yoy,
+             note=f"FY{latest_hc.get('fy')} · "
+                  f"{latest_hc.get('executives'):,} execs · "
+                  f"{latest_hc.get('workers'):,} workers"
+                  if latest_hc.get('total') else ""),
+        _kpi("Women in workforce",
+             f"{women_pct:.1f}%" if women_pct is not None else "—",
+             "",
+             f"{diversity.get('women_pct_all_management', 0):.1f}% of all management"
+             if diversity.get("women_pct_all_management") else "",
+             amber=(women_pct is not None and women_pct < 10)),
+        _kpi("Turnover rate (TTM)",
+             f"{latest_to.get('total'):.2f}%" if latest_to.get('total') is not None else "—",
+             "",
+             to_yoy,
+             note=f"voluntary {latest_to.get('voluntary'):.2f}%"
+                  if latest_to.get("voluntary") is not None else "",
+             amber=(latest_to.get('total') or 0) > 8),
+        _kpi("Trade apprentices",
+             f"{latest_app.get('count', 0):,}" if latest_app else "—",
+             "",
+             app_yoy,
+             note=f"FY{latest_app.get('fy')}" if latest_app else ""),
     ]
 
-    breakdowns = [
-        {
-            "title": "Headcount by function",
-            "unit": "people",
-            "items": [
-                {"label": f["function"], "value": f.get("headcount", 0),
-                 "share": round(f.get("headcount", 0) / total_headcount, 3)
-                          if total_headcount else 0}
-                for f in sorted(funcs, key=lambda x: -x.get("headcount", 0))
-            ],
-        },
-        {
-            "title": "Attrition vs baseline (TTM %)",
+    breakdowns = []
+
+    if reservation:
+        breakdowns.append({
+            "title": "Diversity — share of workforce vs share in management (FY23-24)",
             "unit": "%",
             "items": [
-                {"label": f["function"], "value": f.get("ttm_attrition_pct", 0),
-                 "share": 0,
-                 "amber": (baseline is not None
-                           and f.get("ttm_attrition_pct", 0) > baseline * 1.05)}
-                for f in sorted(funcs, key=lambda x: -(x.get("ttm_attrition_pct") or 0))
+                {"label": r["category"], "value": r["workforce_pct"], "share": 0}
+                for r in reservation
             ],
-        },
-    ]
+        })
+
+    if training:
+        breakdowns.append({
+            "title": "Training participation (FY23-24)",
+            "unit": "%",
+            "items": [
+                {"label": "Executives",
+                 "value": training.get("executives_participation_pct", 0),
+                 "share": 0},
+                {"label": "Workers (non-execs)",
+                 "value": training.get("workers_participation_pct", 0),
+                 "share": 0},
+                {"label": "Avg spend per employee (₹)",
+                 "value": training.get("avg_spend_per_employee_inr", 0),
+                 "share": 0},
+                {"label": "Avg spend per mgmt FTE (₹)",
+                 "value": training.get("avg_spend_per_mgmt_fte_inr", 0),
+                 "share": 0},
+            ],
+        })
+
+    if apprentices:
+        breakdowns.append({
+            "title": "Trade apprentices — last 5 years",
+            "unit": "apprentices",
+            "items": [
+                {"label": f"FY{a['fy']}", "value": a["count"], "share": 0}
+                for a in apprentices
+            ],
+        })
+
+    # Trend: 4-year headcount (execs + workers stacked) + turnover line
+    trend = {
+        "label": "Headcount + turnover, last 4 FYs",
+        "unit": "indexed",
+        "labels": [r["fy"] for r in headcount_rows],
+        "series": [
+            {"name": "Total headcount",
+             "values": [r.get("total") for r in headcount_rows]},
+            {"name": "Turnover % × 1000",
+             "values": [(_match_turnover(r["fy"], turnover) or 0) * 1000
+                        for r in headcount_rows]},
+        ],
+    }
 
     highlights = []
-    if attrition_amber and weighted_attrition is not None and baseline is not None:
+    if latest_to.get("total") is not None and prev_to.get("total") is not None:
+        delta = latest_to["total"] - prev_to["total"]
+        if delta < 0:
+            highlights.append(
+                f"Turnover down to {latest_to['total']:.2f}% — "
+                f"{abs(delta):.2f} pts below FY{prev_to['fy']}."
+            )
+    if women_pct is not None and women_pct < 10:
         highlights.append(
-            f"TTM attrition {weighted_attrition:.1f}% is {(weighted_attrition - baseline):.1f} "
-            f"points above the 5-yr baseline of {baseline}%."
+            f"Women still {women_pct:.1f}% of the workforce — "
+            f"{diversity.get('women_pct_all_management', 0):.1f}% of management."
         )
-    biggest_gap = max(funcs, key=lambda f: (f.get("median_ttf_weeks", 0) or 0))
-    if biggest_gap.get("median_ttf_weeks", 0) >= 10:
+    if swabalamban.get("placement_pct"):
         highlights.append(
-            f"{biggest_gap['function']} takes {biggest_gap['median_ttf_weeks']} "
-            f"weeks median to fill — the longest cycle."
+            f"Project OIL Swabalamban placed {swabalamban.get('placed')} of "
+            f"{swabalamban.get('trained')} trained ({swabalamban['placement_pct']}%) in FY25."
         )
-
-    # Attrition trend — per-function attrition vs the 5-yr baseline,
-    # so the reader can see which curves spike above the line.
-    trend = None
-    if funcs and baseline is not None:
-        sorted_fns = sorted(funcs, key=lambda x: -(x.get("ttm_attrition_pct") or 0))
-        trend = {
-            "label": "TTM attrition % by function vs 5-yr baseline",
-            "unit": "%",
-            "labels": [f["function"] for f in sorted_fns],
-            "series": [
-                {"name": "TTM attrition (%)",
-                 "values": [f.get("ttm_attrition_pct") for f in sorted_fns]},
-                {"name": f"baseline ({baseline}%)",
-                 "values": [baseline for _ in sorted_fns]},
-            ],
-        }
 
     return {"kpis": kpis, "breakdowns": breakdowns, "trend": trend,
             "highlights": highlights}
+
+
+def _match_turnover(fy: str, rows: list[dict]) -> float | None:
+    """Return the turnover-row total whose `fy` matches the given label.
+    Used to align two parallel time series on the trend chart."""
+    for r in rows:
+        if r.get("fy") == fy:
+            return r.get("total")
+    return None
 
 
 # ============================================================
