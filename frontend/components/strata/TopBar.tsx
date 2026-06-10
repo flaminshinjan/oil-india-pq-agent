@@ -11,12 +11,9 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { Icon } from './Icon';
-import { DomainSelector, type DomainKey } from './DomainSelector';
 
 interface Props {
   dateStr: string;
-  domain: DomainKey;
-  onDomainChange: (next: DomainKey) => void;
   onCustomise?: () => void;
   customiseOpen?: boolean;
   /** Click handler for the "share / export" icon. */
@@ -47,7 +44,7 @@ const SEVERITY_RANK: Record<Signal['severity'], number> = {
 };
 
 export function TopBar({
-  dateStr, domain, onDomainChange, onCustomise, customiseOpen = false, onShare, onOpenChat,
+  dateStr, onCustomise, customiseOpen = false, onShare, onOpenChat,
 }: Props) {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [tickerIdx, setTickerIdx] = useState(0);
@@ -108,10 +105,9 @@ export function TopBar({
           </div>
         </div>
 
-        {/* Right cluster — selector + ticker + FY + date */}
+        {/* Right cluster — ticker + FY + date. Dashboard selector is
+            now rendered inside the analytics pane, top-right. */}
         <div className="topbar-right">
-          <DomainSelector value={domain} onChange={onDomainChange} />
-
           <div className="topbar-ticker" aria-live="polite">
             <div className="ticker-blip">
               <span className="ticker-blip-dot" />

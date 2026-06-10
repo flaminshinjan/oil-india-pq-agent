@@ -3772,3 +3772,43 @@
   /* When the chat sheet is up, lock the body scroll behind it. */
   .split.mobile-chat-open .analytics-pane { overflow: hidden; }
 }
+
+/* ============================================================
+   Analytics-pane toolbar — dashboard selector lives top-right
+   of the right column, no longer in the topbar.
+   ============================================================ */
+.analytics-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 14px 0 6px;
+  background: linear-gradient(180deg,
+    var(--bg) 0%,
+    var(--bg) 70%,
+    color-mix(in oklab, var(--bg) 88%, transparent) 100%);
+  margin: 0 auto;
+  width: 100%;
+  max-width: 1180px;
+}
+.analytics-toolbar .domain-sel-btn {
+  min-width: 200px;
+  background: var(--surface);
+  border: 0.5px solid var(--line);
+  box-shadow: 0 6px 14px -8px color-mix(in oklab, var(--ink) 18%, transparent);
+}
+.analytics-toolbar .domain-sel-pop {
+  /* Anchor the pop-over to the selector so it stays under it. */
+  right: 0;
+  left: auto;
+}
+@media (max-width: 880px) {
+  .analytics-toolbar {
+    padding: 10px 0 4px;
+    justify-content: stretch;
+  }
+  .analytics-toolbar .domain-sel,
+  .analytics-toolbar .domain-sel-btn { width: 100%; }
+}

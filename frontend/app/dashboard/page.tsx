@@ -23,7 +23,7 @@ import { HseAlertCard } from '@/components/strata/HseAlertCard';
 import { Drilldown, type DrilldownData } from '@/components/strata/Drilldown';
 import { DomainDashboard } from '@/components/strata/DomainDashboard';
 import { SourcePreview } from '@/components/strata/SourcePreview';
-import type { DomainKey } from '@/components/strata/DomainSelector';
+import { DomainSelector, type DomainKey } from '@/components/strata/DomainSelector';
 import type { BriefCardData } from '@/components/strata/BriefCard';
 
 import {
@@ -125,8 +125,6 @@ export default function StrataHome() {
     <div className="app split-app">
       <TopBar
         dateStr={dateStr}
-        domain={domain}
-        onDomainChange={setDomain}
         onOpenChat={() => setMobileChat(true)}
       />
 
@@ -140,6 +138,9 @@ export default function StrataHome() {
         />
 
         <main className="analytics-pane">
+          <div className="analytics-toolbar">
+            <DomainSelector value={domain} onChange={setDomain} />
+          </div>
           <div className="col">
             {domain === 'brief' ? (
               loading || !brief ? (
