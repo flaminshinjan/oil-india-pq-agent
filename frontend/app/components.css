@@ -3890,3 +3890,19 @@
     transition: filter 220ms ease;
   }
 }
+
+/* Collapse button — only meaningful when the chat is in expanded mode
+ * (covering most of the screen). Hidden by default; mobile chat sheet
+ * uses its own .chat-tool-mobile-close. */
+.chat-tool-collapse { display: none; }
+@media (min-width: 881px) {
+  .chat-pane.is-expanded .chat-tool-collapse {
+    display: inline-flex;
+    background: var(--surface-2);
+    border-radius: 8px;
+  }
+  .chat-pane.is-expanded .chat-tool-collapse:hover {
+    background: var(--accent-tint);
+    color: var(--accent);
+  }
+}

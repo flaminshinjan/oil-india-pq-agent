@@ -39,6 +39,7 @@ def _resolve_subdir(candidates: list[str]) -> Path:
 
 DB_DIR = _resolve_subdir(["db", "DB"])
 SYN_DIR = _resolve_subdir(["synthetic", "Synthetic"])
+DISCL_DIR = _resolve_subdir(["disclosures", "Disclosures"])
 
 
 # ============================================================
@@ -588,8 +589,10 @@ def _drilling_wells() -> list[dict]:
 # ============================================================
 
 def hse_metrics() -> dict:
+    # PPE events feed is a demo / simulated CV stream — kept in synthetic/.
     events = (_safe_load_json(SYN_DIR / "ppe_events.json") or {}).get("events", [])
-    safety = _safe_load_json(SYN_DIR / "safety_hr.json") or {}
+    # LTIFR + incident table is real, extracted from BRSR.
+    safety = _safe_load_json(DISCL_DIR / "safety_hr.json") or {}
     ltifr_rows = safety.get("ltifr_5yr", []) or []
     incidents = safety.get("incidents_3yr", []) or []
     safety_headlines = safety.get("headlines_fy25", []) or []
@@ -746,7 +749,8 @@ def hse_metrics() -> dict:
 def hr_metrics() -> dict:
     """KPIs sourced from the real numbers extracted from OIL's BRSR /
     ESG / Annual Reports — no synthetic by-function values."""
-    data = _safe_load_json(SYN_DIR / "workforce.json")
+    # Real BRSR / ESG-extracted workforce data lives in disclosures/.
+    data = _safe_load_json(DISCL_DIR / "workforce.json")
     headcount_rows = data.get("headcount_5yr", []) or []
     diversity = data.get("diversity_fy24", {}) or {}
     reservation = data.get("reservation_fy24", []) or []
@@ -895,117 +899,227 @@ def _match_turnover(fy: str, rows: list[dict]) -> float | None:
 # ============================================================
 
 def procurement_metrics() -> dict:
+    # REAL — MSE + GeM disclosures from BRSR / Annual Reports.
+    real = _safe_load_json(DISCL_DIR / "procurement.json") or {}
+    mse_rows = real.get("mse_procurement", []) or []
+    gem_rows = real.get("gem_procurement", []) or []
+
+    # DEMO — synthetic single-PR bid walk-through to illustrate the
+    # vendor-evaluation flow. Clearly tagged "demo".
     data = _safe_load_json(SYN_DIR / "procurement.json")
     pr = data.get("purchase_request", {}) or {}
     bids = data.get("bids", []) or []
     weights = pr.get("criteria_weights", {})
     budget = pr.get("budget_inr_cr")
 
-    if not bids:
+    # If we have neither demo nor disclosures, bail.
+    if not bids and not mse_rows:
         return {"kpis": [], "breakdowns": [], "trend": None, "highlights": []}
 
-    best_price = min(bids, key=lambda b: b.get("price_inr_cr", 1e9))
-    best_delivery = min(bids, key=lambda b: b.get("delivery_weeks", 1e9))
-    best_warranty = max(bids, key=lambda b: b.get("warranty_months", -1))
+    latest_mse = mse_rows[-1] if mse_rows else None
+    prev_mse = mse_rows[-2] if len(mse_rows) >= 2 else None
+    _, mse_yoy = _yoy(latest_mse.get("value_inr_cr") if latest_mse else None,
+                      prev_mse.get("value_inr_cr") if prev_mse else None)
+
+    latest_gem = gem_rows[-1] if gem_rows else None
+    prev_gem = gem_rows[-2] if len(gem_rows) >= 2 else None
+    _, gem_yoy = _yoy(latest_gem.get("value_inr_cr") if latest_gem else None,
+                      prev_gem.get("value_inr_cr") if prev_gem else None)
+
+    best_price = min(bids, key=lambda b: b.get("price_inr_cr", 1e9)) if bids else {}
     high_severity = sum(
         1 for b in bids for d in (b.get("deviations") or [])
         if d.get("severity") == "high"
     )
 
-    avg_price = sum(b.get("price_inr_cr", 0) for b in bids) / len(bids)
-    underspend_pct = ((budget - best_price.get("price_inr_cr", 0)) / budget * 100
-                      if budget else None)
-
+    # KPI strip — lead with REAL disclosed numbers, then the demo PR.
     kpis = [
-        _kpi("Active PR budget",
-             f"₹{budget:.2f}" if budget is not None else "—",
-             "Cr", pr.get("id") or "open request",
-             note=pr.get("description", "")[:80] + "…"
-             if pr.get("description") else ""),
-        _kpi("Vendor bids in", str(len(bids)), "",
-             f"avg ₹{avg_price:.2f} Cr"),
-        _kpi("Best price",
-             f"₹{best_price.get('price_inr_cr', 0):.2f}",
-             "Cr",
-             f"{best_price.get('vendor', '')} · saves "
-             f"{underspend_pct:.1f}%" if underspend_pct else best_price.get("vendor", ""),
+        _kpi("MSE procurement",
+             f"₹{latest_mse.get('value_inr_cr'):,.0f}" if latest_mse else "—",
+             "Cr", mse_yoy,
+             note=f"FY{latest_mse.get('fy')}" + (f" · {latest_mse.get('share_pct')}% of total"
+                                                  if latest_mse and latest_mse.get('share_pct') else "")
+                  if latest_mse else "",
              amber=False),
-        _kpi("High-severity deviations", str(high_severity), "",
-             "across all bids",
+        _kpi("GeM portal procurement",
+             f"₹{latest_gem.get('value_inr_cr'):,.0f}" if latest_gem else "—",
+             "Cr", gem_yoy,
+             note=f"FY{latest_gem.get('fy')}" if latest_gem else ""),
+        _kpi("Active demo PR (sim.)",
+             f"₹{budget:.2f}" if budget is not None else "—",
+             "Cr", pr.get("id") or "—",
+             note="walkthrough · synthetic"),
+        _kpi("High-severity deviations (demo)", str(high_severity), "",
+             "across simulated bids",
              amber=high_severity >= 1),
     ]
 
-    breakdowns = [
-        {
-            "title": "Bid comparison — price (₹ Cr)",
+    breakdowns: list[dict] = []
+    if mse_rows:
+        breakdowns.append({
+            "title": "MSE procurement — last 4 FYs (₹ Cr)",
+            "unit": "₹ Cr",
+            "items": [
+                {"label": f"FY{r['fy']}", "value": r["value_inr_cr"], "share": 0}
+                for r in mse_rows
+            ],
+        })
+    if gem_rows:
+        breakdowns.append({
+            "title": "GeM portal procurement — last 4 FYs (₹ Cr)",
+            "unit": "₹ Cr",
+            "items": [
+                {"label": f"FY{r['fy']}", "value": r["value_inr_cr"], "share": 0}
+                for r in gem_rows
+            ],
+        })
+    if bids:
+        breakdowns.append({
+            "title": "Demo PR bid walk-through · price (₹ Cr, simulated)",
             "unit": "₹ Cr",
             "items": [
                 {"label": b.get("vendor", "—"),
                  "value": b.get("price_inr_cr", 0),
-                 "share": round((budget - b.get("price_inr_cr", 0)) / budget, 3)
-                          if budget else 0,
+                 "share": 0,
                  "amber": b.get("price_inr_cr", 0) > budget if budget else False}
                 for b in sorted(bids, key=lambda x: x.get("price_inr_cr", 0))
             ],
-        },
-        {
-            "title": "Bid comparison — delivery (weeks)",
-            "unit": "weeks",
-            "items": [
-                {"label": b.get("vendor", "—"),
-                 "value": b.get("delivery_weeks", 0),
-                 "share": 0,
-                 "amber": b.get("delivery_weeks", 0) >= 20}
-                for b in sorted(bids, key=lambda x: x.get("delivery_weeks", 0))
-            ],
-        },
-        {
-            "title": "Bid comparison — OEM rating (out of 10)",
-            "unit": "rating",
-            "items": [
-                {"label": b.get("vendor", "—"),
-                 "value": b.get("oem_rating", 0),
-                 "share": 0}
-                for b in sorted(bids, key=lambda x: -(x.get("oem_rating") or 0))
-            ],
-        },
-    ]
+        })
 
-    highlights = []
-    if best_price and best_delivery:
-        if best_price.get("vendor") == best_delivery.get("vendor"):
-            highlights.append(
-                f"{best_price['vendor']} wins on both price and delivery — "
-                f"the recommendable bid."
-            )
-        else:
-            highlights.append(
-                f"{best_price['vendor']} is cheapest, but "
-                f"{best_delivery['vendor']} delivers {best_price.get('delivery_weeks', 0) - best_delivery.get('delivery_weeks', 0)} "
-                f"weeks sooner."
-            )
-    if high_severity >= 1:
+    highlights: list[str] = []
+    if latest_mse and latest_mse.get("share_pct"):
         highlights.append(
-            f"{high_severity} high-severity contract deviation(s) flagged — "
-            f"legal review required before award."
+            f"MSE share at {latest_mse['share_pct']}% in FY{latest_mse['fy']} — "
+            f"comfortably above the 25% statutory floor."
+        )
+    if latest_gem and prev_gem:
+        delta = (latest_gem.get("value_inr_cr") or 0) - (prev_gem.get("value_inr_cr") or 0)
+        if delta > 0:
+            highlights.append(
+                f"GeM procurement up ₹{delta:,.0f} Cr to ₹{latest_gem.get('value_inr_cr'):,.0f} Cr "
+                f"in FY{latest_gem['fy']} — digital-first sourcing scaling fast."
+            )
+    if high_severity >= 1 and bids:
+        highlights.append(
+            f"Demo PR walk-through shows {high_severity} high-severity contract "
+            f"deviation(s) — legal review before award."
         )
 
-    # Trend: bid price vs OEM rating side-by-side (indexed so both fit
-    # on one chart). Tells the user the price-quality story at a glance.
+    # REAL trend — MSE vs GeM procurement growth, last 4 FYs.
     trend = None
-    sorted_bids = sorted(bids, key=lambda b: (b.get("price_inr_cr") or 0))
-    if sorted_bids:
+    if mse_rows or gem_rows:
+        # Union of FY labels.
+        all_fys = sorted({r["fy"] for r in (mse_rows + gem_rows)})
+        mse_by_fy = {r["fy"]: r["value_inr_cr"] for r in mse_rows}
+        gem_by_fy = {r["fy"]: r["value_inr_cr"] for r in gem_rows}
         trend = {
-            "label": "Vendor bids — price (₹ Cr) vs OEM rating",
-            "unit": "indexed",
-            "labels": [b.get("vendor", "—") for b in sorted_bids],
+            "label": "MSE vs GeM procurement, last 4 FYs (₹ Cr)",
+            "unit": "₹ Cr",
+            "labels": all_fys,
             "series": [
-                {"name": "Price (₹ Cr)",
-                 "values": [b.get("price_inr_cr") for b in sorted_bids]},
-                {"name": "OEM rating",
-                 "values": [b.get("oem_rating") for b in sorted_bids]},
+                {"name": "MSE", "values": [mse_by_fy.get(fy) for fy in all_fys]},
+                {"name": "GeM", "values": [gem_by_fy.get(fy) for fy in all_fys]},
             ],
         }
+
+    return {"kpis": kpis, "breakdowns": breakdowns, "trend": trend,
+            "highlights": highlights}
+
+
+# ============================================================
+# Domain: Finance
+# ============================================================
+
+def finance_metrics() -> dict:
+    """Real five-year financial snapshot extracted from OIL's Annual
+    Reports (FY 2020-21 → FY 2024-25)."""
+    data = _safe_load_json(DISCL_DIR / "finance.json") or {}
+    rows = data.get("five_year_snapshot", []) or []
+    csr_rows = data.get("csr_5yr", []) or []
+    headlines = data.get("highlights_fy25", []) or []
+
+    if not rows:
+        return {"kpis": [], "breakdowns": [], "trend": None, "highlights": []}
+
+    latest = rows[-1]
+    prev = rows[-2] if len(rows) >= 2 else {}
+    five_back = rows[0]
+
+    _, rev_yoy = _yoy(latest.get("revenue_from_operations"), prev.get("revenue_from_operations"))
+    _, pbt_yoy = _yoy(latest.get("pbt"), prev.get("pbt"))
+    _, capex_yoy = _yoy(latest.get("capex"), prev.get("capex"))
+    rev_5yr_pct, _ = _yoy(latest.get("revenue_from_operations"),
+                          five_back.get("revenue_from_operations"))
+
+    latest_csr = csr_rows[-1] if csr_rows else {}
+
+    kpis = [
+        _kpi("Revenue from operations",
+             f"₹{latest.get('revenue_from_operations'):,.0f}",
+             "Cr", rev_yoy,
+             note=f"FY{latest['fy']} standalone"),
+        _kpi("Profit before tax",
+             f"₹{latest.get('pbt'):,.0f}",
+             "Cr", pbt_yoy,
+             amber=(prev.get('pbt') and latest.get('pbt', 0) < prev.get('pbt'))),
+        _kpi("Capex (standalone)",
+             f"₹{latest.get('capex'):,.0f}",
+             "Cr", capex_yoy,
+             note=f"FY{latest['fy']}"),
+        _kpi("CSR spend",
+             f"₹{latest_csr.get('spent_inr_cr'):.2f}" if latest_csr.get("spent_inr_cr") else "—",
+             "Cr",
+             f"obligation ₹{latest_csr.get('obligation_inr_cr'):.2f} Cr"
+             if latest_csr.get('obligation_inr_cr') else "",
+             note=f"FY{latest_csr.get('fy')}" if latest_csr else ""),
+    ]
+
+    breakdowns = [
+        {
+            "title": "Five-year financial snapshot — Revenue (₹ Cr)",
+            "unit": "₹ Cr",
+            "items": [
+                {"label": f"FY{r['fy']}", "value": r.get("revenue_from_operations", 0),
+                 "share": 0}
+                for r in rows
+            ],
+        },
+        {
+            "title": "Five-year capex programme (₹ Cr)",
+            "unit": "₹ Cr",
+            "items": [
+                {"label": f"FY{r['fy']}", "value": r.get("capex", 0), "share": 0}
+                for r in rows
+            ],
+        },
+        {
+            "title": "CSR spend vs obligation (₹ Cr)",
+            "unit": "₹ Cr",
+            "items": [
+                {"label": f"FY{r['fy']} · obligation",
+                 "value": r.get("obligation_inr_cr", 0), "share": 0}
+                for r in csr_rows
+            ],
+        },
+    ] if csr_rows else []
+
+    trend = {
+        "label": "Revenue + PBT + Capex, last 5 FYs (₹ Cr)",
+        "unit": "₹ Cr",
+        "labels": [r["fy"] for r in rows],
+        "series": [
+            {"name": "Revenue", "values": [r.get("revenue_from_operations") for r in rows]},
+            {"name": "PBT",     "values": [r.get("pbt") for r in rows]},
+            {"name": "Capex",   "values": [r.get("capex") for r in rows]},
+        ],
+    }
+
+    highlights = list(headlines)
+    if rev_5yr_pct is not None and rev_5yr_pct > 100:
+        highlights.append(
+            f"Revenue from operations grew {rev_5yr_pct:.0f}% over five "
+            f"years — outsized scaling beyond the underlying production base."
+        )
 
     return {"kpis": kpis, "breakdowns": breakdowns, "trend": trend,
             "highlights": highlights}
@@ -1021,6 +1135,7 @@ DOMAIN_FNS = {
     "hse":         hse_metrics,
     "hr":          hr_metrics,
     "procurement": procurement_metrics,
+    "finance":     finance_metrics,
 }
 
 DOMAIN_META = {
@@ -1034,15 +1149,19 @@ DOMAIN_META = {
     },
     "hse": {
         "title": "HSE · Safety",
-        "lead":  "Live PPE deviations from the CV pipeline plus the rolling safety picture.",
+        "lead":  "LTIFR and incident data from BRSR, alongside a simulated PPE camera-vision stream.",
     },
     "hr": {
         "title": "HR · Workforce",
-        "lead":  "Headcount, attrition, open requisitions and time-to-fill across functions.",
+        "lead":  "Headcount, diversity, attrition, training and apprenticeship — sourced from OIL's BRSR / ESG Data Book.",
     },
     "procurement": {
         "title": "Procurement",
-        "lead":  "Active purchase requests, vendor bids in flight, and the contract-deviation picture.",
+        "lead":  "MSE and GeM portal disclosures from the Annual Report, plus a simulated PR walk-through.",
+    },
+    "finance": {
+        "title": "Finance",
+        "lead":  "Five-year revenue, PBT, capex and CSR — extracted from the Annual Report.",
     },
 }
 

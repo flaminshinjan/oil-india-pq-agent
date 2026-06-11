@@ -15,7 +15,8 @@ export type DomainKey =
   | 'exploration'
   | 'hse'
   | 'hr'
-  | 'procurement';
+  | 'procurement'
+  | 'finance';
 
 export interface DomainOption {
   key: DomainKey;
@@ -29,7 +30,8 @@ export const DOMAIN_OPTIONS: DomainOption[] = [
   { key: 'exploration',  label: 'Exploration',     hint: 'Drilling, wells, reserves & discoveries' },
   { key: 'hse',          label: 'HSE · Safety', hint: 'LTIFR trend + live PPE event log' },
   { key: 'hr',           label: 'HR · Workforce', hint: 'Headcount, diversity, BRSR labour' },
-  { key: 'procurement',  label: 'Procurement',     hint: 'Vendor spend, contracts, payable cycle' },
+  { key: 'procurement',  label: 'Procurement',     hint: 'MSE + GeM share, vendor evaluation' },
+  { key: 'finance',      label: 'Finance',         hint: '5-yr revenue, PBT, capex, CSR' },
 ];
 
 interface Props {

@@ -42,7 +42,8 @@ const CHIPS_BY_DOMAIN: Record<string, string[]> = {
   exploration: ['How many wells are we behind plan?', 'What is the Andaman status?', 'Where is the latest discovery?'],
   hse:         ['Which site has most PPE flags?', 'How long since last LTI?', 'What is our LTIFR trend?'],
   hr:          ['Where is attrition highest?', 'Open requisitions by function?', 'How are we tracking on diversity?'],
-  procurement: ['Best vendor for the workover rig PR?', 'Any high-severity deviations?', 'Average payable cycle?'],
+  procurement: ['What is OIL’s MSE procurement share?', 'How much went through GeM last year?', 'Any high-severity deviations in the demo PR?'],
+  finance:     ['Show me the 5-year capex trend.', 'PBT FY25 vs FY24?', 'What’s the CSR spend trajectory?'],
 };
 
 function newId() {
@@ -240,6 +241,16 @@ export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClo
           Ask Strata
         </span>
         <div className="chat-tools">
+          {hasMessages && (
+            <button
+              className="chat-tool chat-tool-collapse"
+              onClick={newChat}
+              title="Collapse chat"
+              aria-label="Collapse chat"
+            >
+              <Icon name="close" size={16} />
+            </button>
+          )}
           {onMobileClose && (
             <button
               className="chat-tool chat-tool-mobile-close"
