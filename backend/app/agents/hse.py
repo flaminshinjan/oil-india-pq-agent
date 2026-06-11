@@ -1,9 +1,7 @@
-"""HSE agent — pure RAG over PPE feed + safety PQ context.
+"""HSE agent — pure RAG over OIL's BRSR / ESG / Annual Reports.
 
-The synthetic PPE feed is in Chroma (ingested from data/synthetic/ppe_events.json),
-so retrieval surfaces the recent events. We additionally hand the LLM a
-freshly-computed "now" block so it can render relative times ("9 min ago")
-against the actual wall clock at scan time, not against a stale ingestion.
+No synthetic CV / PPE feed any more. Signals are generated from the real
+safety disclosures in the corpus + the BRSR-extracted LTIFR table.
 """
 from __future__ import annotations
 
@@ -25,22 +23,25 @@ IST = ZoneInfo("Asia/Kolkata")
 SYSTEM_PROMPT_TAIL = """You are the HSE agent inside the Atlas intelligence
 OS for Oil India Limited.
 
-Your scope:
-- PPE compliance events (hard-hat, hi-vis, gloves) detected by the live
-  CV pipeline at field sites
-- Hazard / near-miss reporting
-- Cross-link safety flags to assets / projects in other agents' scope
+Your scope, sourced ENTIRELY from OIL's BRSR / ESG / Annual Reports:
+- Lost-Time Injury Frequency Rate (LTIFR), per million person-hours
+- Fatalities and high-consequence injuries
+- Recordable injuries (workers and executives)
+- HSE management system framework + 5-Star Work-Environment ratings
+- Stop-Work-Authority, near-miss culture, audits
 
-Atlas is advisory: name the site, the time, the type, propose a next step,
-but never auto-action anything. Use **N min ago / Nh Mm ago** relative
-times (computed against the current time block provided), not raw
-timestamps.
+Atlas is advisory: name the metric, the FY it covers, the source
+document. Never invent counts. Use the BRSR-extracted LTIFR values
+(workers: 0.071 FY24-25, 0.158 FY23-24, 0.462 FY22-23) and surface
+the year-on-year improvement narrative.
+
+Do NOT reference any "live CV PPE feed" — that feed has been retired.
 """
 
 
 def _live_state_block() -> str:
-    """Render the freshest PPE events with timestamps relative to *now*."""
-    p = Path(settings.runtime_data_dir) / "synthetic" / "ppe_events.json"
+    """LTIFR + incident snapshot from disclosures (no synthetic feed)."""
+    p = Path(settings.runtime_data_dir) / "disclosures" / "safety_hr.json"
     if not p.exists():
         return ""
     try:
@@ -50,26 +51,34 @@ def _live_state_block() -> str:
 
     now = datetime.now(IST)
     lines = [f"Current time (IST): **{now.strftime('%a %d %b %Y, %H:%M')}**", ""]
-    lines.append("Recent PPE events (sorted newest first):")
-    for ev in sorted(data.get("events", []), key=lambda e: e.get("minutes_ago", 0)):
-        mins = int(ev.get("minutes_ago", 0))
-        if mins < 60:
-            rel = f"{mins} min ago"
-        elif mins < 24 * 60:
-            rel = f"{mins // 60}h {mins % 60}m ago"
-        else:
-            rel = f"{mins // 1440}d ago"
-        lines.append(
-            f"- {rel} · site: {ev.get('site','?')} · asset: {ev.get('asset','?')} "
-            f"· type: {ev.get('type','?')} · confidence: {ev.get('confidence',0)} "
-            f"· shift: {ev.get('shift','?')} · crew lead: {ev.get('crew_lead','—')}"
-        )
-    notes = data.get("site_notes") or {}
-    if notes:
+    rows = data.get("ltifr_5yr") or []
+    if rows:
+        lines.append("Worker LTIFR per million person-hours (BRSR):")
+        for r in rows:
+            workers = r.get("workers")
+            execs = r.get("executives")
+            lines.append(
+                f"- FY{r.get('fy')}: workers "
+                + (f"{workers:.3f}" if workers is not None else "—")
+                + ", executives "
+                + (f"{execs:.3f}" if execs is not None else "—")
+            )
+    inc = data.get("incidents_3yr") or []
+    if inc:
         lines.append("")
-        lines.append("Site notes:")
-        for site, note in notes.items():
-            lines.append(f"- {site}: {note}")
+        lines.append("Recordable / high-consequence / fatalities (workers):")
+        for r in inc:
+            lines.append(
+                f"- FY{r.get('fy')}: recordable {r.get('recordable_workers',0)}, "
+                f"high-consequence {r.get('high_consequence_workers',0)}, "
+                f"fatalities {r.get('fatalities_workers',0)}"
+            )
+    heads = data.get("headlines_fy25") or []
+    if heads:
+        lines.append("")
+        lines.append("BRSR FY24-25 headlines:")
+        for h in heads:
+            lines.append(f"- {h}")
     return "\n".join(lines)
 
 
@@ -78,11 +87,10 @@ def scan() -> list[signals.Signal]:
         agent=AGENT,
         role=SYSTEM_PROMPT_TAIL,
         queries=[
-            "OIL safety PPE compliance hard-hat incidents",
-            "OIL HSE policy near miss reporting",
-            # Pull canonical safety metrics from BRSR / ESG data books.
-            "OIL LTIFR lost time injury frequency rate BRSR",
-            "OIL safety performance fatalities total recordable incident TRIR",
+            "OIL LTIFR lost time injury frequency rate BRSR workers",
+            "OIL safety performance fatalities total recordable incident",
+            "OIL HSE management system 5-star work environment rating",
+            "OIL safety stop work authority near miss reporting",
         ],
         extra_context=_live_state_block(),
     )

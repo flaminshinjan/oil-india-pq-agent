@@ -18,7 +18,6 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { Icon } from './Icon';
-import { HseDrilldownBlock } from './HseDrilldownBlock';
 
 export interface DrilldownRef {
   filename?: string;
@@ -157,8 +156,6 @@ export function Drilldown({ data, onClose, onOpenSource }: Props) {
           <div className="sheet-lead md-rich">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{data.lead}</ReactMarkdown>
           </div>
-
-          {data.agent === 'hse' && <HseDrilldownBlock />}
 
           {data.sections.length > 0 && (
             <section className="sheet-sections">

@@ -1,8 +1,8 @@
-"""Procurement agent — pure RAG over the synthetic PR + bids feed.
+"""Procurement agent — pure RAG over OIL's procurement disclosures.
 
-The procurement JSON is in Chroma; retrieval surfaces the PR, the weighting
-criteria, and the inbound bids. The LLM scores and recommends — Atlas
-itself does no scoring math.
+No synthetic PR bid walk-through any more. Signals are drawn from the
+Annual Reports + BRSR (MSE share, GeM portal procurement, vendor
+development), and from PQ replies on procurement policy.
 """
 from __future__ import annotations
 
@@ -20,35 +20,32 @@ AGENT = "procurement"
 SYSTEM_PROMPT_TAIL = """You are the Procurement agent inside the Atlas
 intelligence OS for Oil India Limited.
 
-Scope (synthetic + read-only):
-- Drafting RFP packages from a purchase request
-- Scoring inbound bids against the PR's weighted criteria (price,
-  delivery, OEM rating, warranty, compliance)
-- Flagging clause deviations vs. OIL's standard contract template
-- Recommending a winner with a written rationale
+Your scope (read-only, sourced from OIL's Annual Reports + BRSR + PQ
+replies):
+- MSE / SC-ST / Women-entrepreneur procurement (Public Procurement
+  Policy compliance, 25 % MSE floor)
+- GeM portal procurement value, year-on-year
+- Make-in-India / Class-I local supplier preference
+- Vendor-development programmes (NE region MSME outreach)
 
-Your output is advisory — a recommendation a buyer reviews and approves
-outside Atlas. Never simulate an action.
-
-When you compose the recommendation:
-- Compute the weighted score yourself from the criteria_weights and the
-  individual bid fields (price, delivery, OEM rating, warranty, deviations).
-- Surface any high-severity clause deviations explicitly.
-- State the runner-up + why, in case the winner's deviations don't clear.
+Atlas is advisory. Cite the Annual Report or BRSR section, name the FY,
+state the figure. Never invent vendor names or bid values — OIL does not
+publish live bid evaluations. The synthetic demo PR has been retired;
+focus on the disclosed procurement metrics.
 """
 
 
 def _live_state_block() -> str:
-    """Hand the LLM the current PR + bids as a clean JSON block so it can
-    score without prompt parsing tricks."""
-    p = Path(settings.runtime_data_dir) / "synthetic" / "procurement.json"
+    """Hand the LLM the disclosed MSE + GeM rows so it can quote them
+    accurately without hallucinating."""
+    p = Path(settings.runtime_data_dir) / "disclosures" / "procurement.json"
     if not p.exists():
         return ""
     try:
         data = json.loads(p.read_text())
     except Exception:
         return ""
-    return "Current open RFP package:\n```json\n" + json.dumps(data, indent=2) + "\n```"
+    return "OIL procurement disclosures (Annual Reports + BRSR):\n```json\n" + json.dumps(data, indent=2) + "\n```"
 
 
 def scan() -> list[signals.Signal]:
@@ -56,8 +53,10 @@ def scan() -> list[signals.Signal]:
         agent=AGENT,
         role=SYSTEM_PROMPT_TAIL,
         queries=[
-            "OIL procurement RFP bid scoring weighting criteria",
-            "OIL contract liability clause OEM warranty",
+            "OIL MSE micro small enterprise procurement share BRSR",
+            "OIL GeM portal procurement value annual report",
+            "OIL vendor development MSME purchase preference policy",
+            "OIL local supplier Make-in-India procurement",
         ],
         extra_context=_live_state_block(),
     )

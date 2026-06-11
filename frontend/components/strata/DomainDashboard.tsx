@@ -13,7 +13,6 @@
 import { useEffect, useState } from 'react';
 
 import { Drilldown, type DrilldownData } from './Drilldown';
-import { HseDrilldownBlock } from './HseDrilldownBlock';
 import type { DomainKey } from './DomainSelector';
 
 interface Kpi {
@@ -164,15 +163,6 @@ export function DomainDashboard({ domain, onOpenSource }: Props) {
         </section>
       )}
 
-      {domain === 'hse' && (
-        <section className="domain-block">
-          <h2 className="serif domain-section-title">Live PPE event feed</h2>
-          <p className="domain-section-sub">
-            Camera-vision pipeline — every deviation surfaced in real time.
-          </p>
-          <HseDrilldownBlock />
-        </section>
-      )}
     </div>
   );
 }
@@ -229,7 +219,7 @@ function buildKpiDrill(payload: Payload, kpi: Kpi): DrilldownData {
     lead,
     sections,
     sources: [],
-    agent: payload.key === 'hse' ? 'hse' : undefined,
+    agent: undefined,
   };
 }
 

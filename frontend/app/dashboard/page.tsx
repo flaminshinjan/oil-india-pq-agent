@@ -19,7 +19,6 @@ import { BriefSection } from '@/components/strata/BriefSection';
 import { OnTrack } from '@/components/strata/OnTrack';
 import { ChatPanel } from '@/components/strata/ChatPanel';
 import { TrajectoryWidget } from '@/components/strata/TrajectoryWidget';
-import { HseAlertCard } from '@/components/strata/HseAlertCard';
 import { Drilldown, type DrilldownData } from '@/components/strata/Drilldown';
 import { DomainDashboard } from '@/components/strata/DomainDashboard';
 import { SourcePreview } from '@/components/strata/SourcePreview';
@@ -157,13 +156,6 @@ export default function StrataHome() {
                   {metrics.length > 0 && (
                     <MetricsStrip metrics={metrics} peek={METRICS_PEEK} />
                   )}
-                  <HseAlertCard
-                    onOpen={signalId => setDrillKey(String(signalId))}
-                    ltiDays={(() => {
-                      const lti = metrics.find(m => m.id === 'lti');
-                      return lti ? Number(lti.value) : undefined;
-                    })()}
-                  />
                   <TrajectoryWidget />
                   <BriefSection
                     cards={cards}

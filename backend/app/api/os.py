@@ -157,84 +157,14 @@ STRATEGIC_TARGETS = {
 
 @router.get("/hse/events")
 async def os_hse_events():
-    """Live HSE / PPE event feed with current-time-relative stats.
+    """Retired — the synthetic PPE event feed has been removed.
 
-    Reads the synthetic JSON, computes wall-clock offsets against `now`,
-    and rolls up: total count, by-site, by-type, average confidence, etc.
-    """
-    import json
-    from pathlib import Path
-    from ..config import settings
-
-    p = Path(settings.runtime_data_dir) / "synthetic" / "ppe_events.json"
-    if not p.exists():
-        return {"events": [], "stats": {}, "as_of": datetime.now(IST).isoformat()}
-
-    raw = json.loads(p.read_text())
-    now = datetime.now(IST)
-    events = []
-    for e in raw.get("events", []) or []:
-        mins = int(e.get("minutes_ago", 0))
-        if mins < 60:
-            rel = f"{mins} min ago"
-        elif mins < 24 * 60:
-            h, m = divmod(mins, 60)
-            rel = f"{h}h {m}m ago"
-        else:
-            rel = f"{mins // 1440}d ago"
-        events.append({
-            "site": e.get("site"),
-            "asset": e.get("asset"),
-            "type": e.get("type"),
-            "confidence": e.get("confidence"),
-            "crew_lead": e.get("crew_lead"),
-            "shift": e.get("shift"),
-            "minutes_ago": mins,
-            "relative_time": rel,
-            "wall_time": (now.timestamp() - mins * 60),
-        })
-    events.sort(key=lambda x: x["minutes_ago"])
-
-    # Stats
-    by_site: dict[str, int] = {}
-    by_type: dict[str, int] = {}
-    by_shift: dict[str, int] = {}
-    confidences: list[float] = []
-    for e in events:
-        if e["site"]:
-            by_site[e["site"]] = by_site.get(e["site"], 0) + 1
-        if e["type"]:
-            by_type[e["type"]] = by_type.get(e["type"], 0) + 1
-        if e["shift"]:
-            by_shift[e["shift"]] = by_shift.get(e["shift"], 0) + 1
-        if isinstance(e["confidence"], (int, float)):
-            confidences.append(float(e["confidence"]))
-
-    last_24h = [e for e in events if e["minutes_ago"] <= 24 * 60]
-    last_week = [e for e in events if e["minutes_ago"] <= 7 * 24 * 60]
-
-    stats = {
-        "total": len(events),
-        "last_24h": len(last_24h),
-        "last_week_at_top_site": (
-            max(by_site.values()) if by_site else 0
-        ),
-        "sites_involved": len(by_site),
-        "by_site": dict(sorted(by_site.items(), key=lambda kv: -kv[1])),
-        "by_type": dict(sorted(by_type.items(), key=lambda kv: -kv[1])),
-        "by_shift": dict(sorted(by_shift.items(), key=lambda kv: -kv[1])),
-        "avg_confidence": round(sum(confidences) / len(confidences), 2) if confidences else None,
-        "min_confidence": round(min(confidences), 2) if confidences else None,
-        "max_confidence": round(max(confidences), 2) if confidences else None,
-        "top_site": next(iter(by_site)) if by_site else None,
-        "top_type": next(iter(by_type)) if by_type else None,
-        "site_notes": raw.get("site_notes") or {},
-    }
-
+    Returns an empty payload so older frontend builds don't 404."""
     return {
-        "events": events,
-        "stats": stats,
-        "as_of": now.isoformat(),
+        "events": [],
+        "stats": {},
+        "as_of": datetime.now(IST).isoformat(),
+        "retired": True,
     }
 
 

@@ -589,75 +589,61 @@ def _drilling_wells() -> list[dict]:
 # ============================================================
 
 def hse_metrics() -> dict:
-    # PPE events feed is a demo / simulated CV stream — kept in synthetic/.
-    events = (_safe_load_json(SYN_DIR / "ppe_events.json") or {}).get("events", [])
-    # LTIFR + incident table is real, extracted from BRSR.
+    """100% real — LTIFR, recordable injuries, fatalities from BRSR
+    FY 2022-23 → FY 2024-25. No synthetic CV-feed component."""
     safety = _safe_load_json(DISCL_DIR / "safety_hr.json") or {}
     ltifr_rows = safety.get("ltifr_5yr", []) or []
     incidents = safety.get("incidents_3yr", []) or []
     safety_headlines = safety.get("headlines_fy25", []) or []
 
-    by_site: dict[str, int] = {}
-    by_type: dict[str, int] = {}
-    by_shift: dict[str, int] = {}
-    last_24h = 0
-    conf_vals: list[float] = []
-    for e in events:
-        if e.get("site"):
-            by_site[e["site"]] = by_site.get(e["site"], 0) + 1
-        if e.get("type"):
-            by_type[e["type"]] = by_type.get(e["type"], 0) + 1
-        if e.get("shift"):
-            by_shift[e["shift"]] = by_shift.get(e["shift"], 0) + 1
-        if (e.get("minutes_ago") or 0) < 60 * 24:
-            last_24h += 1
-        if isinstance(e.get("confidence"), (int, float)):
-            conf_vals.append(float(e["confidence"]))
-
-    total = len(events)
-    avg_conf = sum(conf_vals) / len(conf_vals) if conf_vals else None
+    if not ltifr_rows and not incidents:
+        return {"kpis": [], "breakdowns": [], "trend": None, "highlights": []}
 
     latest_ltifr = ltifr_rows[-1] if ltifr_rows else {}
     prev_ltifr = ltifr_rows[-2] if len(ltifr_rows) >= 2 else {}
+    five_back_ltifr = ltifr_rows[0] if ltifr_rows else {}
     _, ltifr_yoy = _yoy(latest_ltifr.get("workers"), prev_ltifr.get("workers"))
+    ltifr_5yr_pct, _ = _yoy(latest_ltifr.get("workers"), five_back_ltifr.get("workers"))
 
     latest_inc = incidents[-1] if incidents else {}
     fatalities = (latest_inc.get("fatalities_workers", 0)
                   + latest_inc.get("fatalities_executives", 0)) if latest_inc else None
+
+    # Sum recordable workers across the last three years for TTM-style figure.
+    recordable_3yr = sum(r.get("recordable_workers", 0) for r in incidents)
+    high_conseq_3yr = sum(r.get("high_consequence_workers", 0) for r in incidents)
 
     kpis = [
         _kpi("Worker LTIFR",
              f"{latest_ltifr.get('workers'):.3f}" if latest_ltifr.get("workers") is not None else "—",
              "per M hrs",
              ltifr_yoy,
-             note=f"FY{latest_ltifr.get('fy')} actual" if latest_ltifr else "",
+             note=f"FY{latest_ltifr.get('fy')} · BRSR" if latest_ltifr else "",
              amber=(latest_ltifr.get("workers") or 0) > 0.2),
         _kpi("Fatalities (TTM)",
              str(fatalities) if fatalities is not None else "—",
              "",
-             f"FY{latest_inc.get('fy')}" if latest_inc else "",
+             f"FY{latest_inc.get('fy')} workers + execs" if latest_inc else "",
              amber=(fatalities is not None and fatalities >= 1)),
-        _kpi("Open PPE events", str(total), "",
-             "live · last 7 days",
-             amber=total >= 5),
-        _kpi("Last 24 hours", str(last_24h), "",
-             "CV feed · rolling window",
-             amber=last_24h >= 3),
+        _kpi("Recordable injuries · 3-yr",
+             str(recordable_3yr) if incidents else "—",
+             "",
+             f"workers · FY22-23 → FY{latest_inc.get('fy')}" if latest_inc else "",
+             amber=False),
+        _kpi("High-consequence · 3-yr",
+             str(high_conseq_3yr) if incidents else "—",
+             "",
+             "excluding fatalities",
+             amber=(high_conseq_3yr >= 5)),
     ]
 
-    TYPE_LABEL = {
-        "no_hardhat": "No hard-hat",
-        "no_hi_vis":  "No hi-vis",
-        "no_gloves":  "No gloves",
-        "no_goggles": "No goggles",
-    }
-    breakdowns = []
+    breakdowns: list[dict] = []
     if ltifr_rows:
         breakdowns.append({
-            "title": "LTIFR by year — workers vs executives (BRSR)",
+            "title": "Worker LTIFR by FY (BRSR)",
             "unit": "per M hrs",
             "items": [
-                {"label": f"FY{r['fy']} · workers",
+                {"label": f"FY{r['fy']}",
                  "value": (r.get("workers") if r.get("workers") is not None else 0),
                  "share": 0,
                  "amber": (r.get("workers") or 0) > 0.2}
@@ -666,64 +652,29 @@ def hse_metrics() -> dict:
         })
     if incidents:
         breakdowns.append({
-            "title": "Recordable workplace injuries (BRSR)",
+            "title": "Recordable injuries — workers, by FY",
             "unit": "incidents",
             "items": [
-                {"label": f"FY{r['fy']} · recordable",
+                {"label": f"FY{r['fy']}",
                  "value": r.get("recordable_workers", 0), "share": 0,
                  "amber": r.get("recordable_workers", 0) >= 3}
                 for r in incidents
             ],
         })
-    if by_site:
         breakdowns.append({
-            "title": "Live PPE events by site",
-            "unit": "events",
+            "title": "High-consequence injuries (excl. fatalities)",
+            "unit": "incidents",
             "items": [
-                {"label": k, "value": v, "share": round(v / total, 3) if total else 0}
-                for k, v in sorted(by_site.items(), key=lambda x: -x[1])
-            ],
-        })
-    if by_type:
-        breakdowns.append({
-            "title": "Live PPE events by type",
-            "unit": "events",
-            "items": [
-                {"label": TYPE_LABEL.get(k, k), "value": v,
-                 "share": round(v / total, 3) if total else 0}
-                for k, v in sorted(by_type.items(), key=lambda x: -x[1])
-            ],
-        })
-    if by_shift:
-        # rename to mirror the new "live" naming.
-        breakdowns.append({
-            "title": "Events by shift",
-            "unit": "events",
-            "items": [
-                {"label": f"Shift {k}", "value": v,
-                 "share": round(v / total, 3) if total else 0}
-                for k, v in sorted(by_shift.items())
+                {"label": f"FY{r['fy']}",
+                 "value": r.get("high_consequence_workers", 0), "share": 0}
+                for r in incidents
             ],
         })
 
-    highlights = []
-    if last_24h >= 3:
-        highlights.append(
-            f"{last_24h} PPE deviations in the last 24 hours — above the "
-            f"two-per-day informal threshold."
-        )
-    if avg_conf is not None and avg_conf > 0.85:
-        highlights.append(
-            f"CV detector running at {int(round(avg_conf * 100))}% mean "
-            f"confidence — no model drift suspected."
-        )
-
-    # Real LTIFR trend — sourced from BRSR FY 2022-23 → FY 2024-25.
-    # Far more informative than counting PPE events into hour buckets.
     trend = None
     if ltifr_rows:
         trend = {
-            "label": "Worker LTIFR — per million person-hours (BRSR)",
+            "label": "LTIFR trend — workers vs executives (BRSR)",
             "unit": "per M hrs",
             "labels": [r["fy"] for r in ltifr_rows],
             "series": [
@@ -734,9 +685,12 @@ def hse_metrics() -> dict:
             ],
         }
 
-    # Prepend the BRSR safety headlines so the user sees what's
-    # narratively notable, not just the numbers.
-    highlights = safety_headlines + highlights
+    highlights = list(safety_headlines)
+    if ltifr_5yr_pct is not None and ltifr_5yr_pct < -50:
+        highlights.append(
+            f"Worker LTIFR down {abs(ltifr_5yr_pct):.0f}% over the LTIFR "
+            f"reporting window — sustained downtrend in lost-time incidents."
+        )
 
     return {"kpis": kpis, "breakdowns": breakdowns, "trend": trend,
             "highlights": highlights}
@@ -899,59 +853,50 @@ def _match_turnover(fy: str, rows: list[dict]) -> float | None:
 # ============================================================
 
 def procurement_metrics() -> dict:
-    # REAL — MSE + GeM disclosures from BRSR / Annual Reports.
+    """100% real — MSE + GeM portal disclosures from OIL Annual Reports
+    and BRSR. No synthetic PR bid walk-through anywhere on this page."""
     real = _safe_load_json(DISCL_DIR / "procurement.json") or {}
     mse_rows = real.get("mse_procurement", []) or []
     gem_rows = real.get("gem_procurement", []) or []
+    policies = real.get("purchase_preference_policies", []) or []
 
-    # DEMO — synthetic single-PR bid walk-through to illustrate the
-    # vendor-evaluation flow. Clearly tagged "demo".
-    data = _safe_load_json(SYN_DIR / "procurement.json")
-    pr = data.get("purchase_request", {}) or {}
-    bids = data.get("bids", []) or []
-    weights = pr.get("criteria_weights", {})
-    budget = pr.get("budget_inr_cr")
-
-    # If we have neither demo nor disclosures, bail.
-    if not bids and not mse_rows:
+    if not mse_rows and not gem_rows:
         return {"kpis": [], "breakdowns": [], "trend": None, "highlights": []}
 
     latest_mse = mse_rows[-1] if mse_rows else None
     prev_mse = mse_rows[-2] if len(mse_rows) >= 2 else None
     _, mse_yoy = _yoy(latest_mse.get("value_inr_cr") if latest_mse else None,
                       prev_mse.get("value_inr_cr") if prev_mse else None)
+    five_mse_pct, _ = _yoy(latest_mse.get("value_inr_cr") if latest_mse else None,
+                           mse_rows[0].get("value_inr_cr") if mse_rows else None)
 
     latest_gem = gem_rows[-1] if gem_rows else None
     prev_gem = gem_rows[-2] if len(gem_rows) >= 2 else None
     _, gem_yoy = _yoy(latest_gem.get("value_inr_cr") if latest_gem else None,
                       prev_gem.get("value_inr_cr") if prev_gem else None)
+    five_gem_pct, _ = _yoy(latest_gem.get("value_inr_cr") if latest_gem else None,
+                           gem_rows[0].get("value_inr_cr") if gem_rows else None)
 
-    best_price = min(bids, key=lambda b: b.get("price_inr_cr", 1e9)) if bids else {}
-    high_severity = sum(
-        1 for b in bids for d in (b.get("deviations") or [])
-        if d.get("severity") == "high"
-    )
-
-    # KPI strip — lead with REAL disclosed numbers, then the demo PR.
     kpis = [
         _kpi("MSE procurement",
              f"₹{latest_mse.get('value_inr_cr'):,.0f}" if latest_mse else "—",
              "Cr", mse_yoy,
-             note=f"FY{latest_mse.get('fy')}" + (f" · {latest_mse.get('share_pct')}% of total"
-                                                  if latest_mse and latest_mse.get('share_pct') else "")
-                  if latest_mse else "",
-             amber=False),
+             note=f"FY{latest_mse.get('fy')}"
+                  + (f" · {latest_mse.get('share_pct')}% of total"
+                     if latest_mse and latest_mse.get("share_pct") else "")
+                  if latest_mse else ""),
         _kpi("GeM portal procurement",
              f"₹{latest_gem.get('value_inr_cr'):,.0f}" if latest_gem else "—",
              "Cr", gem_yoy,
              note=f"FY{latest_gem.get('fy')}" if latest_gem else ""),
-        _kpi("Active demo PR (sim.)",
-             f"₹{budget:.2f}" if budget is not None else "—",
-             "Cr", pr.get("id") or "—",
-             note="walkthrough · synthetic"),
-        _kpi("High-severity deviations (demo)", str(high_severity), "",
-             "across simulated bids",
-             amber=high_severity >= 1),
+        _kpi("MSE vs 4-yr ago",
+             f"{'+' if (five_mse_pct or 0) >= 0 else ''}{five_mse_pct:.0f}%"
+             if five_mse_pct is not None else "—",
+             "", "cumulative change"),
+        _kpi("GeM vs 4-yr ago",
+             f"{'+' if (five_gem_pct or 0) >= 0 else ''}{five_gem_pct:.0f}%"
+             if five_gem_pct is not None else "—",
+             "", "cumulative change"),
     ]
 
     breakdowns: list[dict] = []
@@ -973,18 +918,6 @@ def procurement_metrics() -> dict:
                 for r in gem_rows
             ],
         })
-    if bids:
-        breakdowns.append({
-            "title": "Demo PR bid walk-through · price (₹ Cr, simulated)",
-            "unit": "₹ Cr",
-            "items": [
-                {"label": b.get("vendor", "—"),
-                 "value": b.get("price_inr_cr", 0),
-                 "share": 0,
-                 "amber": b.get("price_inr_cr", 0) > budget if budget else False}
-                for b in sorted(bids, key=lambda x: x.get("price_inr_cr", 0))
-            ],
-        })
 
     highlights: list[str] = []
     if latest_mse and latest_mse.get("share_pct"):
@@ -996,13 +929,14 @@ def procurement_metrics() -> dict:
         delta = (latest_gem.get("value_inr_cr") or 0) - (prev_gem.get("value_inr_cr") or 0)
         if delta > 0:
             highlights.append(
-                f"GeM procurement up ₹{delta:,.0f} Cr to ₹{latest_gem.get('value_inr_cr'):,.0f} Cr "
-                f"in FY{latest_gem['fy']} — digital-first sourcing scaling fast."
+                f"GeM procurement up ₹{delta:,.0f} Cr to "
+                f"₹{latest_gem.get('value_inr_cr'):,.0f} Cr in FY{latest_gem['fy']} "
+                f"— digital-first sourcing scaling fast."
             )
-    if high_severity >= 1 and bids:
+    if policies:
         highlights.append(
-            f"Demo PR walk-through shows {high_severity} high-severity contract "
-            f"deviation(s) — legal review before award."
+            "Public-procurement preference policies in force: "
+            + " · ".join(policies[:4]) + "."
         )
 
     # REAL trend — MSE vs GeM procurement growth, last 4 FYs.
