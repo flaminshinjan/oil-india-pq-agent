@@ -57,6 +57,10 @@ export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClo
   const [activeId, setActiveId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  // The user explicitly collapsed the expanded chat — we still want
+  // the conversation visible in the small panel; "+ New chat" is the
+  // only thing that should wipe messages.
+  const [collapsedManually, setCollapsedManually] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -112,6 +116,7 @@ export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClo
   }, [historyOpen]);
 
   const hasMessages = messages.length > 0;
+  const isExpanded = hasMessages && !collapsedManually;
 
   async function ask(question: string) {
     let id = activeId;
@@ -121,6 +126,8 @@ export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClo
     }
     setHistoryOpen(false);
     setQ('');
+    // Any new question re-expands the chat — the user is talking again.
+    setCollapsedManually(false);
 
     const historyBefore = messages;
     setMessages(m => [
@@ -180,6 +187,7 @@ export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClo
     setMessages([]);
     setActiveId(null);
     setHistoryOpen(false);
+    setCollapsedManually(false);
     setQ('');
     setTimeout(() => inputRef.current?.focus(), 50);
   }
@@ -213,6 +221,7 @@ export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClo
     setActiveId(t.id);
     setMessages(t.messages);
     setHistoryOpen(false);
+    setCollapsedManually(false);
   }
 
   function deleteThread(e: React.MouseEvent, id: string) {
@@ -230,7 +239,7 @@ export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClo
       className={
         'chat-pane'
         + (mobileOpen ? ' is-mobile-open' : '')
-        + (hasMessages ? ' is-expanded' : '')
+        + (isExpanded ? ' is-expanded' : '')
       }
     >
       <div className="chat-pane-head">
@@ -241,11 +250,11 @@ export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClo
           Ask Strata
         </span>
         <div className="chat-tools">
-          {hasMessages && (
+          {isExpanded && (
             <button
               className="chat-tool chat-tool-collapse"
-              onClick={newChat}
-              title="Collapse chat"
+              onClick={() => setCollapsedManually(true)}
+              title="Collapse chat (keep history)"
               aria-label="Collapse chat"
             >
               <Icon name="close" size={16} />
