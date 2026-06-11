@@ -870,60 +870,93 @@ def procurement_metrics() -> dict:
     if not mse_rows and not gem_rows:
         return {"kpis": [], "breakdowns": [], "trend": None, "highlights": []}
 
-    latest_mse = mse_rows[-1] if mse_rows else None
-    prev_mse = mse_rows[-2] if len(mse_rows) >= 2 else None
+    def _latest_row(seq, key):
+        for r in reversed(seq):
+            if isinstance(r, dict) and r.get(key) is not None:
+                return r
+        return None
+
+    def _prev_row(seq, latest, key):
+        if not latest:
+            return None
+        try:
+            i = seq.index(latest)
+        except ValueError:
+            return None
+        for r in reversed(seq[:i]):
+            if isinstance(r, dict) and r.get(key) is not None:
+                return r
+        return None
+
+    def _first_row(seq, key):
+        for r in seq:
+            if isinstance(r, dict) and r.get(key) is not None:
+                return r
+        return None
+
+    latest_mse  = _latest_row(mse_rows, "value_inr_cr")
+    prev_mse    = _prev_row(mse_rows, latest_mse, "value_inr_cr")
+    first_mse   = _first_row(mse_rows, "value_inr_cr")
+    latest_gem  = _latest_row(gem_rows, "value_inr_cr")
+    prev_gem    = _prev_row(gem_rows, latest_gem, "value_inr_cr")
+    first_gem   = _first_row(gem_rows, "value_inr_cr")
+
     _, mse_yoy = _yoy(latest_mse.get("value_inr_cr") if latest_mse else None,
                       prev_mse.get("value_inr_cr") if prev_mse else None)
     five_mse_pct, _ = _yoy(latest_mse.get("value_inr_cr") if latest_mse else None,
-                           mse_rows[0].get("value_inr_cr") if mse_rows else None)
-
-    latest_gem = gem_rows[-1] if gem_rows else None
-    prev_gem = gem_rows[-2] if len(gem_rows) >= 2 else None
+                           first_mse.get("value_inr_cr") if first_mse else None)
     _, gem_yoy = _yoy(latest_gem.get("value_inr_cr") if latest_gem else None,
                       prev_gem.get("value_inr_cr") if prev_gem else None)
     five_gem_pct, _ = _yoy(latest_gem.get("value_inr_cr") if latest_gem else None,
-                           gem_rows[0].get("value_inr_cr") if gem_rows else None)
+                           first_gem.get("value_inr_cr") if first_gem else None)
+
+    def _inr(v):
+        return f"₹{v:,.0f}" if isinstance(v, (int, float)) else "—"
+
+    mse_note = ""
+    if latest_mse:
+        mse_note = f"FY{latest_mse.get('fy')}"
+        if latest_mse.get("share_pct") is not None:
+            mse_note += f" · {latest_mse['share_pct']}% of total"
 
     kpis = [
         _kpi("MSE procurement",
-             f"₹{latest_mse.get('value_inr_cr'):,.0f}" if latest_mse else "—",
-             "Cr", mse_yoy,
-             note=f"FY{latest_mse.get('fy')}"
-                  + (f" · {latest_mse.get('share_pct')}% of total"
-                     if latest_mse and latest_mse.get("share_pct") else "")
-                  if latest_mse else ""),
+             _inr(latest_mse.get("value_inr_cr") if latest_mse else None),
+             "Cr", mse_yoy, note=mse_note),
         _kpi("GeM portal procurement",
-             f"₹{latest_gem.get('value_inr_cr'):,.0f}" if latest_gem else "—",
+             _inr(latest_gem.get("value_inr_cr") if latest_gem else None),
              "Cr", gem_yoy,
              note=f"FY{latest_gem.get('fy')}" if latest_gem else ""),
-        _kpi("MSE vs 4-yr ago",
+        _kpi("MSE growth (4-yr)",
              f"{'+' if (five_mse_pct or 0) >= 0 else ''}{five_mse_pct:.0f}%"
              if five_mse_pct is not None else "—",
              "", "cumulative change"),
-        _kpi("GeM vs 4-yr ago",
+        _kpi("GeM growth (4-yr)",
              f"{'+' if (five_gem_pct or 0) >= 0 else ''}{five_gem_pct:.0f}%"
              if five_gem_pct is not None else "—",
              "", "cumulative change"),
     ]
 
     breakdowns: list[dict] = []
-    if mse_rows:
+    mse_items = [
+        {"label": f"FY{r['fy']}", "value": r["value_inr_cr"], "share": 0}
+        for r in mse_rows if isinstance(r, dict) and r.get("value_inr_cr") is not None
+    ]
+    if mse_items:
         breakdowns.append({
-            "title": "MSE procurement — last 4 FYs (₹ Cr)",
+            "title": "MSE procurement — disclosed FYs (₹ Cr)",
             "unit": "₹ Cr",
-            "items": [
-                {"label": f"FY{r['fy']}", "value": r["value_inr_cr"], "share": 0}
-                for r in mse_rows
-            ],
+            "items": mse_items,
         })
-    if gem_rows:
+    gem_items = [
+        {"label": f"FY{r['fy']}", "value": r["value_inr_cr"], "share": 0}
+        for r in gem_rows if isinstance(r, dict) and r.get("value_inr_cr") is not None
+    ]
+    if gem_items:
         breakdowns.append({
-            "title": "GeM portal procurement — last 4 FYs (₹ Cr)",
+            "title": "GeM portal procurement — disclosed FYs (₹ Cr)",
             "unit": "₹ Cr",
-            "items": [
-                {"label": f"FY{r['fy']}", "value": r["value_inr_cr"], "share": 0}
-                for r in gem_rows
-            ],
+            "items": gem_items,
         })
 
     highlights: list[str] = []
@@ -932,12 +965,12 @@ def procurement_metrics() -> dict:
             f"MSE share at {latest_mse['share_pct']}% in FY{latest_mse['fy']} — "
             f"comfortably above the 25% statutory floor."
         )
-    if latest_gem and prev_gem:
+    if latest_gem and prev_gem and isinstance(latest_gem.get("value_inr_cr"), (int, float)):
         delta = (latest_gem.get("value_inr_cr") or 0) - (prev_gem.get("value_inr_cr") or 0)
         if delta > 0:
             highlights.append(
                 f"GeM procurement up ₹{delta:,.0f} Cr to "
-                f"₹{latest_gem.get('value_inr_cr'):,.0f} Cr in FY{latest_gem['fy']} "
+                f"₹{latest_gem['value_inr_cr']:,.0f} Cr in FY{latest_gem['fy']} "
                 f"— digital-first sourcing scaling fast."
             )
     if policies:
@@ -949,10 +982,9 @@ def procurement_metrics() -> dict:
     # REAL trend — MSE vs GeM procurement growth, last 4 FYs.
     trend = None
     if mse_rows or gem_rows:
-        # Union of FY labels.
-        all_fys = sorted({r["fy"] for r in (mse_rows + gem_rows)})
-        mse_by_fy = {r["fy"]: r["value_inr_cr"] for r in mse_rows}
-        gem_by_fy = {r["fy"]: r["value_inr_cr"] for r in gem_rows}
+        all_fys = sorted({r["fy"] for r in (mse_rows + gem_rows) if isinstance(r, dict) and r.get("fy")})
+        mse_by_fy = {r["fy"]: r.get("value_inr_cr") for r in mse_rows if isinstance(r, dict)}
+        gem_by_fy = {r["fy"]: r.get("value_inr_cr") for r in gem_rows if isinstance(r, dict)}
         trend = {
             "label": "MSE vs GeM procurement, last 4 FYs (₹ Cr)",
             "unit": "₹ Cr",
@@ -988,63 +1020,118 @@ def finance_metrics() -> dict:
     prev = rows[-2] if len(rows) >= 2 else {}
     five_back = rows[0]
 
-    _, rev_yoy = _yoy(latest.get("revenue_from_operations"), prev.get("revenue_from_operations"))
-    _, pbt_yoy = _yoy(latest.get("pbt"), prev.get("pbt"))
-    _, capex_yoy = _yoy(latest.get("capex"), prev.get("capex"))
-    rev_5yr_pct, _ = _yoy(latest.get("revenue_from_operations"),
-                          five_back.get("revenue_from_operations"))
+    # Pick the most-recent FY where each metric actually has a value.
+    def _latest_with_key(key: str) -> dict | None:
+        for r in reversed(rows):
+            if r.get(key) is not None:
+                return r
+        return None
 
-    latest_csr = csr_rows[-1] if csr_rows else {}
+    rev_l   = _latest_with_key("revenue_from_operations")
+    pbt_l   = _latest_with_key("pbt")
+    capex_l = _latest_with_key("capex")
+
+    def _pos(seq, idx):
+        try:
+            return seq[idx]
+        except (IndexError, TypeError):
+            return {}
+
+    def _prev_with_key(latest_row: dict | None, key: str) -> dict | None:
+        if not latest_row:
+            return None
+        try:
+            i = rows.index(latest_row)
+        except ValueError:
+            return None
+        for r in reversed(rows[:i]):
+            if r.get(key) is not None:
+                return r
+        return None
+
+    rev_prev   = _prev_with_key(rev_l, "revenue_from_operations")
+    pbt_prev   = _prev_with_key(pbt_l, "pbt")
+    capex_prev = _prev_with_key(capex_l, "capex")
+
+    _, rev_yoy   = _yoy(rev_l.get("revenue_from_operations") if rev_l else None,
+                        rev_prev.get("revenue_from_operations") if rev_prev else None)
+    _, pbt_yoy   = _yoy(pbt_l.get("pbt") if pbt_l else None,
+                        pbt_prev.get("pbt") if pbt_prev else None)
+    _, capex_yoy = _yoy(capex_l.get("capex") if capex_l else None,
+                        capex_prev.get("capex") if capex_prev else None)
+    rev_5yr_pct, _ = _yoy(
+        rev_l.get("revenue_from_operations") if rev_l else None,
+        rows[0].get("revenue_from_operations") if rows else None,
+    )
+
+    latest_csr = next(
+        (r for r in reversed(csr_rows) if r.get("spent_inr_cr") is not None
+         or r.get("obligation_inr_cr") is not None),
+        {},
+    )
+
+    def _fmt_inr(v):
+        return f"₹{v:,.0f}" if isinstance(v, (int, float)) else "—"
+
+    def _fmt_csr(v):
+        return f"₹{v:.2f}" if isinstance(v, (int, float)) else "—"
 
     kpis = [
         _kpi("Revenue from operations",
-             f"₹{latest.get('revenue_from_operations'):,.0f}",
+             _fmt_inr(rev_l.get("revenue_from_operations") if rev_l else None),
              "Cr", rev_yoy,
-             note=f"FY{latest['fy']} standalone"),
+             note=f"FY{rev_l['fy']} standalone" if rev_l else ""),
         _kpi("Profit before tax",
-             f"₹{latest.get('pbt'):,.0f}",
+             _fmt_inr(pbt_l.get("pbt") if pbt_l else None),
              "Cr", pbt_yoy,
-             amber=(prev.get('pbt') and latest.get('pbt', 0) < prev.get('pbt'))),
+             amber=bool(pbt_l and pbt_prev
+                        and (pbt_l.get("pbt") or 0) < (pbt_prev.get("pbt") or 0))),
         _kpi("Capex (standalone)",
-             f"₹{latest.get('capex'):,.0f}",
+             _fmt_inr(capex_l.get("capex") if capex_l else None),
              "Cr", capex_yoy,
-             note=f"FY{latest['fy']}"),
+             note=f"FY{capex_l['fy']}" if capex_l else ""),
         _kpi("CSR spend",
-             f"₹{latest_csr.get('spent_inr_cr'):.2f}" if latest_csr.get("spent_inr_cr") else "—",
+             _fmt_csr(latest_csr.get("spent_inr_cr")),
              "Cr",
-             f"obligation ₹{latest_csr.get('obligation_inr_cr'):.2f} Cr"
-             if latest_csr.get('obligation_inr_cr') else "",
+             f"obligation {_fmt_csr(latest_csr.get('obligation_inr_cr'))} Cr"
+             if latest_csr.get("obligation_inr_cr") is not None else "",
              note=f"FY{latest_csr.get('fy')}" if latest_csr else ""),
     ]
 
-    breakdowns = [
-        {
-            "title": "Five-year financial snapshot — Revenue (₹ Cr)",
+    # Build breakdowns from rows that ACTUALLY have data — nulls get
+    # dropped so the chart doesn't show "₹0 Cr" placeholder bars.
+    breakdowns: list[dict] = []
+    rev_items = [
+        {"label": f"FY{r['fy']}", "value": r["revenue_from_operations"], "share": 0}
+        for r in rows if r.get("revenue_from_operations") is not None
+    ]
+    if rev_items:
+        breakdowns.append({
+            "title": "Revenue from operations — last FYs disclosed (₹ Cr)",
             "unit": "₹ Cr",
-            "items": [
-                {"label": f"FY{r['fy']}", "value": r.get("revenue_from_operations", 0),
-                 "share": 0}
-                for r in rows
-            ],
-        },
-        {
-            "title": "Five-year capex programme (₹ Cr)",
+            "items": rev_items,
+        })
+    capex_items = [
+        {"label": f"FY{r['fy']}", "value": r["capex"], "share": 0}
+        for r in rows if r.get("capex") is not None
+    ]
+    if capex_items:
+        breakdowns.append({
+            "title": "Capex programme (₹ Cr)",
             "unit": "₹ Cr",
-            "items": [
-                {"label": f"FY{r['fy']}", "value": r.get("capex", 0), "share": 0}
-                for r in rows
-            ],
-        },
-        {
-            "title": "CSR spend vs obligation (₹ Cr)",
+            "items": capex_items,
+        })
+    csr_items = [
+        {"label": f"FY{r['fy']} · obligation",
+         "value": r["obligation_inr_cr"], "share": 0}
+        for r in csr_rows if r.get("obligation_inr_cr") is not None
+    ]
+    if csr_items:
+        breakdowns.append({
+            "title": "CSR obligation by FY (₹ Cr)",
             "unit": "₹ Cr",
-            "items": [
-                {"label": f"FY{r['fy']} · obligation",
-                 "value": r.get("obligation_inr_cr", 0), "share": 0}
-                for r in csr_rows
-            ],
-        },
-    ] if csr_rows else []
+            "items": csr_items,
+        })
 
     trend = {
         "label": "Revenue + PBT + Capex, last 5 FYs (₹ Cr)",
