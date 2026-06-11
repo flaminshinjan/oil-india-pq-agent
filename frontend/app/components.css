@@ -3870,9 +3870,16 @@
                 4px 0 12px -4px color-mix(in oklab, var(--ink) 12%, transparent);
   }
 
-  /* Inside the expanded chat, widen the message column so long
-     answers (paragraphs, tables, code blocks) read comfortably. */
-  .chat-pane.is-expanded .chat-pane-head,
+  /* Inside the expanded chat:
+     - Header bar spans the FULL width of the sheet (no max-width gutters);
+       title/tools sit edge-to-edge with the sheet sides.
+     - Message column + composer keep a max-width for comfortable reading. */
+  .chat-pane.is-expanded .chat-pane-head {
+    padding-left: 28px;
+    padding-right: 28px;
+    width: 100%;
+    max-width: none;
+  }
   .chat-pane.is-expanded .chat-scroll,
   .chat-pane.is-expanded .chat-pane-form {
     padding-left: 36px;

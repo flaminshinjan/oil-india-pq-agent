@@ -66,6 +66,7 @@ export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClo
   const abortRef = useRef<AbortController | null>(null);
   const historyBtnRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
+  const paneRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => setThreads(loadThreads()), []);
 
@@ -117,6 +118,26 @@ export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClo
 
   const hasMessages = messages.length > 0;
   const isExpanded = hasMessages && !collapsedManually;
+
+  // Collapse the expanded chat when the user clicks anywhere outside it
+  // (the analytics pane, the topbar, the floating selector, etc.).
+  // Touch / pointer down so it feels immediate.
+  useEffect(() => {
+    if (!isExpanded) return;
+    const onDown = (e: PointerEvent) => {
+      const t = e.target as Node | null;
+      if (!t) return;
+      if (paneRef.current?.contains(t)) return;
+      // Don't collapse if the click is on the source-preview side panel
+      // or an overlay sheet — those are part of the chat workflow.
+      const inOverlay = (t instanceof Element)
+        && t.closest('.src-panel, .sheet-portal, .history-pop');
+      if (inOverlay) return;
+      setCollapsedManually(true);
+    };
+    document.addEventListener('pointerdown', onDown);
+    return () => document.removeEventListener('pointerdown', onDown);
+  }, [isExpanded]);
 
   async function ask(question: string) {
     let id = activeId;
@@ -236,6 +257,7 @@ export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClo
 
   return (
     <aside
+      ref={paneRef}
       className={
         'chat-pane'
         + (mobileOpen ? ' is-mobile-open' : '')

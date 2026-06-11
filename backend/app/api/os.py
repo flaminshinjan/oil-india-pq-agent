@@ -155,6 +155,16 @@ STRATEGIC_TARGETS = {
 }
 
 
+@router.post("/disclosures/refresh")
+async def os_disclosures_refresh():
+    """Drop the RAG-extraction cache so the next dashboard load
+    re-runs the corpus extraction. Useful after a new BRSR / Annual
+    Report is ingested."""
+    from ..core.dynamic_extract import reset_cache
+    reset_cache()
+    return {"ok": True, "note": "disclosure extraction cache cleared"}
+
+
 @router.get("/hse/events")
 async def os_hse_events():
     """Retired — the synthetic PPE event feed has been removed.

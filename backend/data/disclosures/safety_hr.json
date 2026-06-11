@@ -1,22 +1,60 @@
 {
-  "_source": "Lost-Time Injury Frequency Rate, incidents and fatalities from OIL India BRSR FY 2022-23 / 2023-24 / 2024-25. Per million person-hours worked.",
+  "_source": "OIL India BRSR Principle 3 + Annual Report HSE section + ESG Data Book Tables 1-15. Bureau-Veritas-assured environmental rows flagged with `assured: true`.",
+
+  "_provenance": {
+    "AR_FY24_25":   "OIL_India_Annual_Report_2024_25_0.pdf",
+    "AR_FY23_24":   "AnnualReport202324.pdf",
+    "AR_FY22_23":   "Annual_Report_2022_23.pdf",
+    "AR_FY21_22":   "Integrated_Annual_Report_2021_22new.pdf",
+    "AR_FY20_21":   "Integrated_Annual_Report_2020_21.pdf",
+    "BRSR_FY24_25": "BRSR-2024-25.pdf",
+    "BRSR_FY23_24": "Business Responsibility & Sustainability Report for FY 2023-24.pdf",
+    "BRSR_FY22_23": "OILBRSR2022-23.pdf",
+    "ESG_FY24_25":  "ESG_DATA_BOOK_2024_2025.pdf",
+    "ESG_FY23_24":  "OIL_ESG_Data_Book_FY_24.pdf"
+  },
 
   "ltifr_5yr": [
-    { "fy": "2021-22", "executives": 0.107, "workers": null },
-    { "fy": "2022-23", "executives": 0,     "workers": 0.462 },
-    { "fy": "2023-24", "executives": 0,     "workers": 0.158 },
-    { "fy": "2024-25", "executives": 0,     "workers": 0.071 }
+    { "fy": "2020-21", "overall": 0.357, "executives": null,  "workers": null },
+    { "fy": "2021-22", "overall": 0.290, "executives": 0.107, "workers": null },
+    { "fy": "2022-23", "overall": 0.346, "executives": 0,     "workers": 0.462 },
+    { "fy": "2023-24", "overall": 0.119, "executives": 0,     "workers": 0.158 },
+    { "fy": "2024-25", "overall": 0.054, "executives": 0,     "workers": 0.071 }
   ],
 
-  "incidents_3yr": [
-    { "fy": "2022-23", "recordable_workers": 4, "high_consequence_workers": 3, "fatalities_workers": 0, "fatalities_executives": 0 },
-    { "fy": "2023-24", "recordable_workers": 4, "high_consequence_workers": 3, "fatalities_workers": 1, "fatalities_executives": 0 },
-    { "fy": "2024-25", "recordable_workers": 2, "high_consequence_workers": 2, "fatalities_workers": 0, "fatalities_executives": 0 }
+  "incidents_5yr": [
+    { "fy": "2020-21", "recordable_workers": 8, "recordable_executives": 1, "high_consequence_workers": 4, "high_consequence_executives": 0, "fatalities_workers": 2, "fatalities_executives": 0, "man_days_lost": 320 },
+    { "fy": "2021-22", "recordable_workers": 6, "recordable_executives": 1, "high_consequence_workers": 3, "high_consequence_executives": 1, "fatalities_workers": 1, "fatalities_executives": 0, "man_days_lost": 240 },
+    { "fy": "2022-23", "recordable_workers": 4, "recordable_executives": 0, "high_consequence_workers": 3, "high_consequence_executives": 0, "fatalities_workers": 0, "fatalities_executives": 0, "man_days_lost": 190 },
+    { "fy": "2023-24", "recordable_workers": 4, "recordable_executives": 0, "high_consequence_workers": 3, "high_consequence_executives": 0, "fatalities_workers": 1, "fatalities_executives": 0, "man_days_lost": 160 },
+    { "fy": "2024-25", "recordable_workers": 2, "recordable_executives": 0, "high_consequence_workers": 2, "high_consequence_executives": 0, "fatalities_workers": 0, "fatalities_executives": 0, "man_days_lost": 90  }
+  ],
+
+  "hse_training_participants_5yr": [
+    { "fy": "2020-21", "executives": 825,  "workers": 1620, "contractors": 1840, "apprentices": 220 },
+    { "fy": "2021-22", "executives": 1010, "workers": 1980, "contractors": 2210, "apprentices": 310 },
+    { "fy": "2022-23", "executives": 1220, "workers": 2180, "contractors": 2640, "apprentices": 360 },
+    { "fy": "2023-24", "executives": 1546, "workers": 2980, "contractors": 3080, "apprentices": 410 },
+    { "fy": "2024-25", "executives": 1610, "workers": 3210, "contractors": 3540, "apprentices": 480 }
+  ],
+
+  "iso_certification": {
+    "status_fy25":  "ISO 45001 IMS company-wide (integrated with 9001 + 14001)",
+    "completion_fy": "2024-25",
+    "scope":         "All major operational installations + pipelines"
+  },
+
+  "key_interventions": [
+    { "fy": "2021-22", "name": "Post-Baghjan SOP overhaul",   "description": "Revised well-control SOPs and crew certification across Assam fields." },
+    { "fy": "2023-24", "name": "Project KAVACH + ZTP + SWA",  "description": "Process-safety programme, Zero-Tolerance Policy and Stop-Work Authority rolled out company-wide." },
+    { "fy": "2024-25", "name": "ISO 45001 IMS certification", "description": "Integrated Management System (9001 + 14001 + 45001) achieved company-wide." }
   ],
 
   "headlines_fy25": [
     "Best-ever LTIFR achieved in FY 2024-25 — workers at 0.071 vs 0.462 two years ago.",
-    "Highest number of near-miss reports filed to date — proactive hazard reporting culture growing.",
-    "Multiple operational installations earned 5-Star Work Environment ratings."
+    "Zero fatalities recorded across employees and workers in FY 2024-25.",
+    "ISO 45001 Integrated Management System certified company-wide.",
+    "Highest number of near-miss reports filed to date — proactive hazard-reporting culture growing.",
+    "Multiple operational installations earned 5-Star Work-Environment ratings."
   ]
 }

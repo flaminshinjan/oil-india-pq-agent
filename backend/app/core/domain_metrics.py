@@ -589,11 +589,14 @@ def _drilling_wells() -> list[dict]:
 # ============================================================
 
 def hse_metrics() -> dict:
-    """100% real — LTIFR, recordable injuries, fatalities from BRSR
-    FY 2022-23 → FY 2024-25. No synthetic CV-feed component."""
-    safety = _safe_load_json(DISCL_DIR / "safety_hr.json") or {}
+    """KPIs extracted dynamically from OIL's BRSR / ESG / Annual Reports
+    via RAG + Anthropic (cached 6 h). Curated JSON is only a fallback if
+    extraction fails."""
+    from .dynamic_extract import extract_hse
+    safety = extract_hse()
     ltifr_rows = safety.get("ltifr_5yr", []) or []
-    incidents = safety.get("incidents_3yr", []) or []
+    # New schema uses `incidents_5yr`; tolerate the legacy `incidents_3yr`.
+    incidents = safety.get("incidents_5yr") or safety.get("incidents_3yr") or []
     safety_headlines = safety.get("headlines_fy25", []) or []
 
     if not ltifr_rows and not incidents:
@@ -701,10 +704,11 @@ def hse_metrics() -> dict:
 # ============================================================
 
 def hr_metrics() -> dict:
-    """KPIs sourced from the real numbers extracted from OIL's BRSR /
-    ESG / Annual Reports — no synthetic by-function values."""
-    # Real BRSR / ESG-extracted workforce data lives in disclosures/.
-    data = _safe_load_json(DISCL_DIR / "workforce.json")
+    """KPIs extracted dynamically from OIL's BRSR / ESG / Annual Reports
+    via RAG + Anthropic (cached 6 h). The curated JSON is only a fallback
+    if the corpus / LLM is unavailable."""
+    from .dynamic_extract import extract_hr
+    data = extract_hr()
     headcount_rows = data.get("headcount_5yr", []) or []
     diversity = data.get("diversity_fy24", {}) or {}
     reservation = data.get("reservation_fy24", []) or []
