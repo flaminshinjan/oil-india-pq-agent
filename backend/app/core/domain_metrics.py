@@ -1087,19 +1087,19 @@ DOMAIN_META = {
     },
     "hse": {
         "title": "HSE · Safety",
-        "lead":  "LTIFR and incident data from BRSR, alongside a simulated PPE camera-vision stream.",
+        "lead":  "Worker / executive LTIFR, recordable injuries and fatalities — latest disclosure cycle (BRSR FY 2024-25). The FY 2025-26 BRSR is typically published Oct–Dec after the FY closes.",
     },
     "hr": {
         "title": "HR · Workforce",
-        "lead":  "Headcount, diversity, attrition, training and apprenticeship — sourced from OIL's BRSR / ESG Data Book.",
+        "lead":  "Headcount, diversity, attrition, training and apprenticeship — latest disclosure cycle (BRSR + ESG Data Book FY 2024-25). FY 2025-26 disclosures will land later in 2026.",
     },
     "procurement": {
         "title": "Procurement",
-        "lead":  "MSE and GeM portal disclosures from the Annual Report, plus a simulated PR walk-through.",
+        "lead":  "MSE share + GeM portal procurement — latest Annual Report disclosure (FY 2023-24). FY 2024-25 detail expected when next AR ships.",
     },
     "finance": {
         "title": "Finance",
-        "lead":  "Five-year revenue, PBT, capex and CSR — extracted from the Annual Report.",
+        "lead":  "Standalone revenue, PBT, capex, dividend, CSR — five-year snapshot from OIL's Annual Report FY 2024-25 (latest audited cycle).",
     },
 }
 
