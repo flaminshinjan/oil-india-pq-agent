@@ -4162,3 +4162,98 @@
   color: var(--ink-4);
   margin-right: 8px;
 }
+
+/* ============================================================
+   SVG charts — panels, legends, logic map, claims table
+   ============================================================ */
+.chart-panel-grid { display: grid; grid-template-columns: 1fr; gap: 18px; }
+.chart-panel-grid.is-split { grid-template-columns: 1fr 1fr; }
+@media (max-width: 1000px) { .chart-panel-grid.is-split { grid-template-columns: 1fr; } }
+
+.chart-wrap {
+  border: 0.5px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+  padding: 14px 16px 12px;
+}
+.chart-svg { width: 100%; height: auto; display: block; }
+.chart-subtitle {
+  font-size: 11.5px; color: var(--ink-2); font-weight: var(--w-med);
+  text-align: center; margin-bottom: 4px;
+}
+.chart-legend {
+  display: flex; flex-wrap: wrap; gap: 6px 16px;
+  margin-top: 8px; padding-top: 8px;
+  font-size: 11px; color: var(--ink-2);
+}
+.chart-legend-item { display: flex; align-items: center; gap: 7px; }
+.chart-legend-dot { border-radius: 2px; flex: none; }
+.chart-note {
+  font-size: 10.5px; color: var(--ink-3); line-height: 1.5;
+  margin: 9px 0 0; letter-spacing: 0.005em;
+}
+
+/* scenario additions */
+.scenario-wells {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px; margin-bottom: 14px;
+}
+.scenario-well {
+  background: var(--surface); border: 0.5px solid var(--line);
+  border-radius: 9px; padding: 10px 12px;
+}
+.scenario-well.is-gas { border-color: color-mix(in oklab, var(--accent) 40%, var(--line)); }
+.scenario-well-name { font-size: 12.5px; font-weight: var(--w-med); color: var(--ink); }
+.scenario-well-meta { font-size: 10.5px; color: var(--ink-3); margin-top: 3px; line-height: 1.4; }
+.scenario-chart {
+  background: var(--surface); border: 0.5px solid var(--line);
+  border-radius: 10px; padding: 12px 14px; margin-bottom: 16px;
+}
+.scenario-chart-title {
+  font-size: 11.5px; color: var(--ink-2); font-weight: var(--w-med); margin-bottom: 6px;
+}
+
+/* cross-page logic map */
+.logic-map { display: flex; flex-direction: column; gap: 14px; padding: 6px 0; }
+.logic-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.logic-row-scenario { margin-left: 26%; }
+.logic-node {
+  border: 0.5px solid var(--line); border-radius: 10px;
+  padding: 11px 15px; min-width: 150px;
+  display: flex; flex-direction: column; gap: 2px; background: var(--surface);
+}
+.logic-node b { font-size: 12.5px; color: var(--ink); }
+.logic-node span { font-size: 10.5px; color: var(--ink-3); }
+.node-green { background: color-mix(in oklab, var(--accent) 8%, var(--surface));
+  border-color: color-mix(in oklab, var(--accent) 30%, var(--line)); }
+.node-green b { color: var(--accent); }
+.node-blue { background: color-mix(in oklab, #2f6db0 8%, var(--surface));
+  border-color: color-mix(in oklab, #2f6db0 30%, var(--line)); }
+.node-blue b { color: #2f6db0; }
+.node-amber { background: var(--amber-tint);
+  border-color: color-mix(in oklab, var(--amber) 40%, var(--line)); }
+.node-amber b { color: var(--amber-ink); }
+.node-dashed { border-style: dashed;
+  border-color: color-mix(in oklab, #6b5bd2 50%, var(--line));
+  background: color-mix(in oklab, #6b5bd2 6%, var(--surface)); }
+.node-dashed b { color: #6b5bd2; }
+.logic-arrow { color: var(--ink-4); font-size: 18px; }
+.logic-arrow-dashed { color: #6b5bd2; }
+
+/* predictive claims table */
+.claims-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+.claims-table thead th {
+  text-align: left; font-weight: var(--w-med); color: var(--ink-4);
+  font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 7px 10px; border-bottom: 0.5px solid var(--line-2); background: var(--surface-2);
+}
+.claims-table td { padding: 8px 10px; color: var(--ink-2); border-bottom: 0.5px solid var(--line); vertical-align: top; }
+.claims-table td:first-child { color: var(--ink-4); width: 26px; }
+.claim-tier {
+  font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+}
+.tier-fitted { color: var(--accent); background: var(--accent-tint); border: 0.5px solid var(--accent-line); }
+.tier-scenario { color: var(--amber-ink); background: var(--amber-tint);
+  border: 0.5px solid color-mix(in oklab, var(--amber) 45%, var(--line)); }
+.tier-derived { color: var(--ink-3); background: var(--surface-2); border: 0.5px solid var(--line); }

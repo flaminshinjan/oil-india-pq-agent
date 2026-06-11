@@ -13,6 +13,7 @@
 import { useEffect, useState } from 'react';
 
 import { Drilldown, type DrilldownData } from './Drilldown';
+import { Chart, LogicMap, ClaimsTable, type ChartSpec } from './Charts';
 import type { DomainKey } from './DomainSelector';
 
 interface Kpi {
@@ -105,8 +106,26 @@ interface Payload {
   insights?: Insight[];
   milestones?: Milestone[];
   scenario?: Scenario | null;
+  charts?: Record<string, ChartSpec>;
   as_of?: string;
 }
+
+/* Ordered chart panels per page — title + the charts.{key}s to render in
+ * that group (side-by-side when more than one). Mirrors the SME pack. */
+const CHART_PANELS: Record<string, { title: string; sub?: string; keys: string[] }[]> = {
+  production: [
+    { title: '10-year production trend', sub: 'Crude (MMT) vs natural gas (MMSCM), FY16–FY26', keys: ['crude_gas_trend'] },
+    { title: 'Reserves analysis — RRR & 2P divergence', sub: 'RRR vs the 1.0 threshold; 2P oil falling while 2P gas rises', keys: ['rrr_bars', 'twop_divergence'] },
+    { title: 'Production forecast fan — FY27–28', sub: 'Decline-curve + intervention regression', keys: ['production_forecast'] },
+    { title: 'RRR scenario fan — FY26–28', sub: 'Monte-Carlo accretion scenarios', keys: ['rrr_scenario'] },
+    { title: 'Gasification crossover projection', sub: 'Gas share of MMToE output crossing 50%', keys: ['gasification'] },
+  ],
+  exploration: [
+    { title: 'Drilling intensity vs production', sub: 'Wells + workovers vs crude, FY21–FY25', keys: ['wells_workovers'] },
+    { title: 'Exploratory meterage by regime — FY26', sub: 'Achievement vs the 100% BE target', keys: ['regime_achievement'] },
+    { title: 'Exploration effectiveness & required-wells inversion', sub: 'Accretion per exploratory well, inverted to an FY27 requirement', keys: ['effectiveness', 'required_wells'] },
+  ],
+};
 
 interface Props {
   domain: DomainKey;
@@ -181,6 +200,20 @@ export function DomainDashboard({ domain, onOpenSource }: Props) {
         />
       )}
 
+      {data.charts && (CHART_PANELS[data.key] || []).map((panel, pi) => {
+        const present = panel.keys.filter(k => data.charts?.[k]);
+        if (present.length === 0) return null;
+        return (
+          <section className="domain-block" key={`panel-${pi}`}>
+            <h2 className="serif domain-section-title">{panel.title}</h2>
+            {panel.sub && <p className="domain-section-sub">{panel.sub}</p>}
+            <div className={'chart-panel-grid' + (present.length > 1 ? ' is-split' : '')}>
+              {present.map(k => <Chart key={k} chart={data.charts![k]} />)}
+            </div>
+          </section>
+        );
+      })}
+
       {data.milestones && data.milestones.length > 0 && (
         <section className="domain-block">
           <h2 className="serif domain-section-title">Live milestones</h2>
@@ -240,7 +273,7 @@ export function DomainDashboard({ domain, onOpenSource }: Props) {
       )}
 
       {data.scenario && (
-        <ScenarioModule scenario={data.scenario} />
+        <ScenarioModule scenario={data.scenario} bayesian={data.charts?.bayesian} />
       )}
 
       {(!data.insights || data.insights.length === 0) &&
@@ -255,7 +288,7 @@ export function DomainDashboard({ domain, onOpenSource }: Props) {
         </section>
       )}
 
-      {data.trend && data.trend.labels.length > 0 && (
+      {!data.charts && data.trend && data.trend.labels.length > 0 && (
         <section className="domain-block">
           <h2 className="serif domain-section-title">Trend</h2>
           <p className="domain-section-sub">{data.trend.label}</p>
@@ -271,6 +304,20 @@ export function DomainDashboard({ domain, onOpenSource }: Props) {
               <BreakdownBlock key={i} block={b} />
             ))}
           </div>
+        </section>
+      )}
+
+      {data.charts && (
+        <section className="domain-block">
+          <h2 className="serif domain-section-title">Cross-page predictive logic</h2>
+          <p className="domain-section-sub">
+            How the models join up — and where the booked/hypothetical line sits.
+          </p>
+          <LogicMap />
+          <h3 className="serif domain-section-title" style={{ marginTop: 24 }}>
+            Predictive claims inventory
+          </h3>
+          <ClaimsTable />
         </section>
       )}
 
@@ -369,7 +416,9 @@ function buildInsightDrill(payload: Payload, ins: Insight): DrilldownData {
   };
 }
 
-function ScenarioModule({ scenario }: { scenario: Scenario }) {
+function ScenarioModule({ scenario, bayesian }:
+  { scenario: Scenario; bayesian?: ChartSpec }) {
+  const wells = (scenario.facts?.wells as any[]) || [];
   return (
     <section className="scenario-module">
       <div className="scenario-head">
@@ -379,6 +428,29 @@ function ScenarioModule({ scenario }: { scenario: Scenario }) {
       </div>
 
       <div className="scenario-guardrail">{scenario.guardrail}</div>
+
+      {wells.length > 0 && (
+        <div className="scenario-wells">
+          {wells.map((w: any, i: number) => (
+            <div className={'scenario-well' + (w.gas_bearing ? ' is-gas' : '')} key={i}>
+              <div className="scenario-well-name">{w.well}</div>
+              <div className="scenario-well-meta">
+                {w.result}{w.water_depth_m ? ` · ${w.water_depth_m} m WD` : ''}
+                {w.methane_pct ? ` · ${w.methane_pct}% methane` : ''}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {bayesian && (
+        <div className="scenario-chart">
+          <div className="scenario-chart-title">
+            Bayesian basin-probability tracker — prior updated on each well result
+          </div>
+          <Chart chart={bayesian} />
+        </div>
+      )}
 
       <div className="scenario-lenses">
         {scenario.lenses.map((l, i) => (

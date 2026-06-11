@@ -355,6 +355,76 @@ def bayesian_success_update(successes: int, trials: int,
         return None
 
 
+def bayesian_sequence(events: Sequence[dict],
+                      prior_alpha: float = 1.0,
+                      prior_beta: float = 4.0) -> dict | None:
+    """Sequential Beta-Binomial update, one step per well event.
+
+    `events` is an ordered list of {label, gas_bearing(bool)}. Prior
+    Beta(1,4) ≈ the ~1-in-5 frontier base rate. Returns the posterior
+    mean after each well so the tracker can plot the path (a dry well
+    dips the curve, a gas-bearing well lifts it — the honest sequence).
+    """
+    try:
+        a, b = float(prior_alpha), float(prior_beta)
+        points = [{"label": "Prior (pre-campaign)",
+                   "p": round(a / (a + b), 3), "kind": "prior"}]
+        for ev in events:
+            if ev.get("gas_bearing"):
+                a += 1
+            else:
+                b += 1
+            points.append({
+                "label": ev.get("label", "well"),
+                "p": round(a / (a + b), 3),
+                "kind": "gas" if ev.get("gas_bearing") else "dry",
+            })
+        return {
+            "prior": f"Beta({int(prior_alpha)},{int(prior_beta)})",
+            "points": points,
+            "posterior_mean": points[-1]["p"],
+        }
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"[predictive] bayesian_sequence failed: {exc}")
+        return None
+
+
+def well_effectiveness_panel(fys: Sequence[str], accretion: Sequence,
+                             expl_wells: Sequence,
+                             prodeq_for_rrr1: float | None,
+                             drilled_latest: int | None) -> dict | None:
+    """Accretion per exploratory well, trended, then inverted: how many
+    exploratory wells next year deliver RRR ≥ 1.0, at the 3-yr-average
+    and at the latest-year effectiveness."""
+    try:
+        series = []
+        eff_vals = []
+        for fy, a, w in zip(fys, accretion, expl_wells):
+            if a is None or not w:
+                continue
+            e = float(a) / float(w)
+            series.append({"fy": fy, "eff": round(e, 2)})
+            eff_vals.append(e)
+        if len(series) < 2 or not prodeq_for_rrr1:
+            return None
+        eff_latest = eff_vals[-1]
+        eff_3yr = sum(eff_vals[-3:]) / len(eff_vals[-3:])
+        req_3yr = round(prodeq_for_rrr1 / eff_3yr) if eff_3yr else None
+        req_latest = round(prodeq_for_rrr1 / eff_latest) if eff_latest else None
+        return {
+            "series": series,
+            "eff_latest": round(eff_latest, 2),
+            "eff_3yr_avg": round(eff_3yr, 2),
+            "required_accretion_for_rrr1": round(prodeq_for_rrr1, 2),
+            "drilled_latest": drilled_latest,
+            "required_wells_3yr_eff": req_3yr,
+            "required_wells_latest_eff": req_latest,
+        }
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"[predictive] well_effectiveness_panel failed: {exc}")
+        return None
+
+
 def andaman_reserves_sensitivity(current_2p_gas_bcm: float,
                                  annual_gas_bcm: float,
                                  pools_bcm: Sequence[float] = (10.0, 25.0, 50.0)

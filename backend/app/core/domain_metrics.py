@@ -375,6 +375,7 @@ def production_metrics() -> dict:
 
     return {"kpis": kpis, "breakdowns": breakdowns, "trend": trend,
             "highlights": highlights, "insights": insights,
+            "charts": _production_charts(),
             "milestones": _milestones("PRODUCTION")}
 
 
@@ -661,6 +662,332 @@ def _pct(v) -> str:
     return f"{v*100:.1f}%" if isinstance(v, (int, float)) else "—"
 
 
+def _fy_short(fy: str) -> str:
+    """'2024-25' -> 'FY25'; '2025-26' -> 'FY26'."""
+    try:
+        return "FY" + fy.split("-")[1][-2:]
+    except Exception:  # noqa: BLE001
+        return fy
+
+
+# ============================================================
+# Chart payloads — every series computed from real files / models.
+# Shapes consumed by the SVG chart components on the dashboard.
+# ============================================================
+
+def _production_charts() -> dict:
+    from . import predictive as P
+    rows = _ten_year_table()
+    if not rows:
+        return {}
+    labels = [_fy_short(r["fy"]) for r in rows]
+    charts: dict = {}
+
+    # 1 — Crude vs Gas dual-axis (FY16→FY26)
+    charts["crude_gas_trend"] = {
+        "type": "dual_line",
+        "labels": labels,
+        "left":  {"name": "Crude (MMT)", "unit": "MMT",
+                  "values": [r.get("crude_mmt") for r in rows]},
+        "right": {"name": "Gas (MMSCM)", "unit": "MMSCM",
+                  "values": [r.get("gas_mmscm") for r in rows]},
+        "annotations": [
+            {"label": "COVID trough", "fy": "FY21"},
+            {"label": "first dip in 5 yrs", "fy": "FY26"},
+        ],
+    }
+
+    # 2a — RRR bars with 1.0 threshold (FY21→FY25)
+    rrr_rows = [r for r in rows if r.get("rrr") is not None]
+    charts["rrr_bars"] = {
+        "type": "bar_threshold",
+        "labels": [_fy_short(r["fy"]) for r in rrr_rows],
+        "values": [r["rrr"] for r in rrr_rows],
+        "unit": "RRR",
+        "threshold": 1.0,
+        "threshold_label": "threshold 1.0",
+        "amber_below": True,
+    }
+
+    # 2b — 2P oil vs 2P gas divergence (dual axis)
+    twop = [r for r in rows if r.get("oil_2p_mmt") is not None
+            or r.get("gas_2p_bcm") is not None]
+    oil0 = next((r["oil_2p_mmt"] for r in twop if r.get("oil_2p_mmt")), None)
+    oilN = next((r["oil_2p_mmt"] for r in reversed(twop) if r.get("oil_2p_mmt")), None)
+    gas0 = next((r["gas_2p_bcm"] for r in twop if r.get("gas_2p_bcm")), None)
+    gasN = next((r["gas_2p_bcm"] for r in reversed(twop) if r.get("gas_2p_bcm")), None)
+    oil_chg = round((oilN / oil0 - 1) * 100) if oil0 and oilN else None
+    gas_chg = round((gasN / gas0 - 1) * 100) if gas0 and gasN else None
+    charts["twop_divergence"] = {
+        "type": "dual_line",
+        "labels": [_fy_short(r["fy"]) for r in twop],
+        "left":  {"name": f"2P oil (MMT){f' — down {abs(oil_chg)}%' if oil_chg else ''}",
+                  "unit": "MMT", "values": [r.get("oil_2p_mmt") for r in twop]},
+        "right": {"name": f"2P gas (BCM){f' — up {gas_chg}%' if gas_chg else ''}",
+                  "unit": "BCM", "values": [r.get("gas_2p_bcm") for r in twop]},
+    }
+
+    # 3 — Production forecast fan (FY27–28): sustained vs base-decline
+    wo = _workover_table()
+    wells_by_fy = _drilling_wells_by_fy()
+    crude_by_fy = {r["fy"]: r.get("crude_mmt") for r in rows}
+    fit_fys = [fy for fy in wo.get("fys", [])
+               if crude_by_fy.get(fy) is not None and wo["total"].get(fy)]
+    fit_fys = fit_fys[:-1] if len(fit_fys) > 1 else fit_fys   # drop FY26 plan
+    plan_wo = wo["total"].get(wo["fys"][-1], 307) if wo.get("fys") else 307
+    wo_model = P.workover_production_model(
+        [wo["total"][fy] for fy in fit_fys],
+        [crude_by_fy[fy] for fy in fit_fys],
+        forecast_workovers=float(plan_wo)) if len(fit_fys) >= 3 else None
+    decline = P.exponential_decline([r["fy"] for r in rows],
+                                    [r["crude_mmt"] for r in rows])
+    last_fy = rows[-1]
+    last_crude = last_fy.get("crude_mmt")
+    if wo_model and decline and last_crude:
+        sustained = round(wo_model["fy27_forecast_mmt"], 3)
+        D = decline["annual_decline_pct"] / 100.0
+        import math
+        red27 = round(last_crude * math.exp(-D), 3)
+        red28 = round(last_crude * math.exp(-2 * D), 3)
+        charts["production_forecast"] = {
+            "type": "forecast_line",
+            "y_unit": "MMT", "y_label": "Crude (MMT)",
+            "labels": labels + ["FY27f", "FY28f"],
+            "actual": {"name": "Actuals", "values":
+                       [r.get("crude_mmt") for r in rows] + [None, None]},
+            "paths": [
+                {"name": f"Sustained intervention (~{int(plan_wo)} workovers/yr)",
+                 "style": "up",
+                 "values": [None] * (len(labels) - 1) + [last_crude, sustained, sustained]},
+                {"name": "Reduced intervention (base decline)",
+                 "style": "down",
+                 "values": [None] * (len(labels) - 1) + [last_crude, red27, red28]},
+            ],
+            "forecast_from": len(labels),
+            "model_note": (
+                f"OLS crude~workovers (R²={wo_model['r2']}); each workover ≈ "
+                f"{wo_model['slope_mmt_per_workover']*1000:.1f} kT. Base decline "
+                f"{decline['annual_decline_pct']}%/yr (Arps b=0, FY16–FY21). "
+                f"Sustained = {int(plan_wo)} workovers held; reduced = base decline only."
+            ),
+        }
+
+    # 4 — RRR scenario fan (FY26–28)
+    acc = [r["rec_mmtoe"] for r in rrr_rows if r.get("rec_mmtoe")]
+    prodeq = [r["rec_mmtoe"] / r["rrr"] for r in rrr_rows
+              if r.get("rec_mmtoe") and r.get("rrr")]
+    if acc and len(prodeq) >= 3:
+        mean_acc = sum(acc) / len(acc)
+        fy25_acc = acc[-1]
+        # production-equivalent growth (geom)
+        import math
+        ratios = [prodeq[i] / prodeq[i - 1] for i in range(1, len(prodeq))]
+        g = math.exp(sum(math.log(x) for x in ratios) / len(ratios)) if all(x > 0 for x in ratios) else 1.0
+        pe = prodeq[-1]
+        hist_path, fy25_path, req_path = [], [], []
+        peh = pe
+        for _ in range(3):  # FY26,27,28
+            peh *= g
+            hist_path.append(round(mean_acc / peh, 3))
+            fy25_path.append(round(fy25_acc / peh, 3))
+            req_path.append(1.0)
+        rrr_lbls = [_fy_short(r["fy"]) for r in rrr_rows]
+        charts["rrr_scenario"] = {
+            "type": "forecast_fan",
+            "y_unit": "RRR", "y_label": "RRR",
+            "labels": rrr_lbls + ["FY26f", "FY27f", "FY28f"],
+            "bars": {"name": "RRR actual", "values":
+                     [r["rrr"] for r in rrr_rows] + [None, None, None]},
+            "threshold": 1.0,
+            "paths": [
+                {"name": "Required path (RRR≥1.0)", "style": "up",
+                 "values": [None] * (len(rrr_lbls) - 1) + [rrr_rows[-1]["rrr"]] + req_path},
+                {"name": "Historical-mean accretion", "style": "flat",
+                 "values": [None] * (len(rrr_lbls) - 1) + [rrr_rows[-1]["rrr"]] + hist_path},
+                {"name": "FY25-level accretion", "style": "down",
+                 "values": [None] * (len(rrr_lbls) - 1) + [rrr_rows[-1]["rrr"]] + fy25_path},
+            ],
+            "forecast_from": len(rrr_lbls),
+            "model_note": (
+                f"Monte-Carlo accretion ~ N(mean={mean_acc:.2f}); production-equivalent "
+                f"depletion = accretion/RRR, growing {((g-1)*100):.1f}%/yr. Required "
+                f"accretion to hold RRR=1.0 by FY28 ≈ {round((pe*g**3/mean_acc-1)*100)}% above mean."
+            ),
+        }
+
+    # 5 — Gasification crossover
+    mix = P.energy_mix_crossover([r["fy"] for r in rows],
+                                 [r["crude_mmt"] for r in rows],
+                                 [r["gas_mmscm"] for r in rows])
+    if mix:
+        shares = mix["gas_share_pct"]
+        slope = mix["share_slope_pts_per_yr"]
+        last_share = shares[-1]
+        # extend organic forecast until it crosses 50% (+2 yrs of headroom)
+        horizon = 8
+        if slope > 0:
+            horizon = min(20, max(8, int((50 - last_share) / slope) + 2))
+        end_start = int(rows[-1]["fy"].split("-")[0])
+        fwd_labels = [f"FY{(end_start + i) % 100:02d}f" for i in range(1, horizon + 1)]
+        organic = [round(last_share + slope * i, 1) for i in range(1, horizon + 1)]
+        # Andaman overlay — hypothetical post-FY32 ramp steepening the curve
+        andaman = []
+        for i in range(1, horizon + 1):
+            yr = end_start + i
+            base = last_share + slope * i
+            boost = max(0, (yr - 2031)) * 1.6 if yr >= 2032 else 0  # illustrative ramp
+            andaman.append(round(base + boost, 1))
+        charts["gasification"] = {
+            "type": "forecast_line",
+            "y_unit": "%", "y_label": "Gas share of MMToE output (%)",
+            "labels": [_fy_short(r["fy"]) for r in rows] + fwd_labels,
+            "actual": {"name": "Gas share of output (actual)",
+                       "values": shares + [None] * horizon},
+            "paths": [
+                {"name": "Organic trend", "style": "flat",
+                 "values": [None] * (len(shares) - 1) + [last_share] + organic},
+                {"name": "With Andaman ramp FY32+ (hypothetical)", "style": "hyp",
+                 "values": [None] * (len(shares) - 1) + [last_share] + andaman},
+            ],
+            "threshold": 50.0, "threshold_label": "50% crossover",
+            "forecast_from": len(shares),
+            "model_note": (
+                f"Crude→MMToE ×1.0, gas→MMToE ×0.90/BCM. Linear fit on gas share "
+                f"(slope {slope} pts/yr) → organic 50% crossover ≈ {mix['crossover_fy_50pct']}. "
+                f"Andaman overlay is hypothetical (unbooked)."
+            ),
+        }
+
+    return charts
+
+
+def _exploration_charts() -> dict:
+    from . import predictive as P
+    rows = _ten_year_table()
+    if not rows:
+        return {}
+    charts: dict = {}
+    wo = _workover_table()
+    wells_by_fy = _drilling_wells_by_fy()
+    regimes = _expl_regime_fy26()
+    crude_by_fy = {r["fy"]: r.get("crude_mmt") for r in rows}
+
+    # 6a — Wells + workovers vs crude (grouped bars + line, FY21→FY25)
+    bar_fys = [fy for fy in wo.get("fys", []) if fy in wells_by_fy]
+    if bar_fys:
+        charts["wells_workovers"] = {
+            "type": "grouped_bar_line",
+            "labels": [_fy_short(fy) for fy in bar_fys],
+            "bars": [
+                {"name": "Wells drilled",
+                 "values": [wells_by_fy.get(fy, {}).get("total") for fy in bar_fys]},
+                {"name": "Workovers",
+                 "values": [wo["total"].get(fy) for fy in bar_fys]},
+            ],
+            "line": {"name": "Crude (MMT)", "unit": "MMT",
+                     "values": [crude_by_fy.get(fy) for fy in bar_fys]},
+        }
+
+    # 6b — Regime achievement horizontal bars (FY26)
+    def _agg(prefix):
+        sel = [r for r in regimes if r["regime"].startswith(prefix)
+               and "Andaman" not in (r.get("state") or "")]
+        tm = sum(r["target_m"] for r in sel)
+        am = sum(r["actual_m"] for r in sel)
+        return (am / tm) if tm else 0.0
+    nominated = next((r for r in regimes if r["regime"] == "Nominated"), {})
+    charts["regime_achievement"] = {
+        "type": "hbar_target",
+        "x_label": "FY26 exploratory meterage achievement (% of BE)",
+        "target": 100.0, "target_label": "100% target",
+        "items": [
+            {"label": "Nominated PML/PEL", "pct": round((nominated.get("pct") or 0) * 100, 1)},
+            {"label": "NELP blocks", "pct": round(_agg("NELP") * 100, 1)},
+            {"label": "OALP blocks", "pct": round(_agg("OALP") * 100, 1)},
+        ],
+    }
+
+    # 7a — Exploration effectiveness (accretion per exploratory well)
+    eff_fys = [fy for fy in wo.get("fys", []) if fy in wells_by_fy
+               and crude_by_fy.get(fy) is not None]
+    rrr_rows = [r for r in rows if r.get("rrr") is not None]
+    prodeq_latest = (rrr_rows[-1]["rec_mmtoe"] / rrr_rows[-1]["rrr"]
+                     if rrr_rows and rrr_rows[-1].get("rrr") and rrr_rows[-1].get("rec_mmtoe")
+                     else None)
+    acc_by_fy = {r["fy"]: r.get("rec_mmtoe") for r in rows}
+    # exploratory wells by FY from the 5-yr drilling file
+    panel_fys = [fy for fy in wo.get("fys", []) if fy in wells_by_fy and acc_by_fy.get(fy)]
+    # latest exploratory wells drilled (FY26 nominated actual)
+    drilled_latest = nominated.get("actual_wells")
+    eff = P.well_effectiveness_panel(
+        [_fy_short(fy) for fy in panel_fys],
+        [acc_by_fy.get(fy) for fy in panel_fys],
+        [wells_by_fy.get(fy, {}).get("expl") for fy in panel_fys],
+        prodeq_for_rrr1=prodeq_latest,
+        drilled_latest=drilled_latest,
+    )
+    if eff:
+        charts["effectiveness"] = {
+            "type": "line",
+            "y_label": "Accretion per exploratory well (MMToE)",
+            "labels": [s["fy"] for s in eff["series"]],
+            "values": [s["eff"] for s in eff["series"]],
+            "point_labels": True,
+            "subtitle": "Effectiveness is declining",
+        }
+        charts["required_wells"] = {
+            "type": "bar",
+            "subtitle": "Wells needed for RRR ≥ 1.0",
+            "y_label": "Exploratory wells",
+            "items": [
+                {"label": f"Drilled FY26", "value": eff["drilled_latest"], "color": "accent"},
+                {"label": "Required FY27\n(@3-yr avg eff.)",
+                 "value": eff["required_wells_3yr_eff"], "color": "amber"},
+                {"label": "Required FY27\n(@FY25 eff.)",
+                 "value": eff["required_wells_latest_eff"], "color": "red"},
+            ],
+            "model_note": (
+                f"Accretion per exploratory well fell {eff['series'][0]['eff']}→"
+                f"{eff['eff_latest']} MMToE (FY{eff['series'][0]['fy'][2:]}–"
+                f"FY{eff['series'][-1]['fy'][2:]}). RRR≥1.0 needs accretion ≈ "
+                f"{eff['required_accretion_for_rrr1']} MMToE."
+            ),
+        }
+
+    # 8 — Bayesian basin-probability tracker (sequential)
+    from .andaman import get_andaman
+    _MONTHS = {"01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr", "05": "May",
+               "06": "Jun", "07": "Jul", "08": "Aug", "09": "Sep", "10": "Oct",
+               "11": "Nov", "12": "Dec"}
+
+    def _well_label(w):
+        short = w.get("well", "").replace("Vijayapuram", "V")
+        d = w.get("date", "")
+        if "-" in d:
+            yr, mo = d.split("-")[:2]
+            when = f"{_MONTHS.get(mo, mo)} {yr}"
+        else:
+            when = d
+        kind = "gas" if w.get("gas_bearing") else "dry"
+        return f"After {short} {kind} ({when})"
+
+    af = get_andaman()
+    events = [{"label": _well_label(w), "gas_bearing": bool(w.get("gas_bearing"))}
+              for w in af.get("wells", [])]
+    seq = P.bayesian_sequence(events)
+    if seq:
+        seq["points"].append({"label": f"After {af.get('next_update_trigger','V-4')}",
+                              "p": seq["points"][-1]["p"], "kind": "pending"})
+        charts["bayesian"] = {
+            "type": "prob_track",
+            "y_label": "Basin success probability",
+            "prior": seq["prior"],
+            "points": seq["points"],
+        }
+
+    return charts
+
+
 def _milestones(page: str | None = None) -> list[dict]:
     """Live-milestones strip. Each is a record_type='milestone' row; the
     Andaman items carry status='unbooked' and never feed the KPI layer."""
@@ -839,7 +1166,7 @@ def exploration_metrics() -> dict:
              "nominated blocks",
              f"{nominated.get('actual_wells', '—')} of {nominated.get('target_wells', '—')} wells",
              amber=(nominated.get("pct") is not None and nominated["pct"] < 0.9),
-             note="NELP / OALP onshore commitment blocks lag at 0%"),
+             note="NELP commitment blocks at 0% — the execution watch-item"),
         _kpi("Workover operations",
              str(wo_fy25 or "—"),
              f"FY{wo_fys[-2]}" if len(wo_fys) >= 2 else "",
@@ -1059,6 +1386,7 @@ def exploration_metrics() -> dict:
 
     return {"kpis": kpis, "breakdowns": breakdowns, "trend": trend,
             "highlights": highlights, "insights": insights,
+            "charts": _exploration_charts(),
             "scenario": _andaman_scenario(),
             "milestones": _milestones("EXPLORATION")}
 
