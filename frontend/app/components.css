@@ -2127,7 +2127,7 @@
 }
 
 .domain-block {
-  margin-top: 22px;
+  margin-top: 34px;
 }
 .domain-section-title {
   font-size: 19px;
@@ -3981,7 +3981,7 @@
 .insight-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
+  gap: 18px;
 }
 @media (max-width: 1100px) { .insight-grid { grid-template-columns: 1fr; } }
 .insight-card {
@@ -4053,7 +4053,8 @@
   background: linear-gradient(180deg,
     var(--amber-tint) 0%,
     color-mix(in oklab, var(--amber-tint) 30%, var(--surface)) 100%);
-  padding: 20px 22px;
+  padding: 24px 24px;
+  margin-top: 34px;
   margin-bottom: 26px;
 }
 .scenario-eyebrow {
@@ -4083,7 +4084,7 @@
 .scenario-lenses {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
+  gap: 16px;
 }
 @media (max-width: 1000px) { .scenario-lenses { grid-template-columns: 1fr; } }
 .scenario-lens {
@@ -4196,7 +4197,7 @@
 /* scenario additions */
 .scenario-wells {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 10px; margin-bottom: 14px;
+  gap: 12px; margin-bottom: 20px;
 }
 .scenario-well {
   background: var(--surface); border: 0.5px solid var(--line);
@@ -4207,8 +4208,9 @@
 .scenario-well-meta { font-size: 10.5px; color: var(--ink-3); margin-top: 3px; line-height: 1.4; }
 .scenario-chart {
   background: var(--surface); border: 0.5px solid var(--line);
-  border-radius: 10px; padding: 12px 14px; margin-bottom: 16px;
+  border-radius: 10px; padding: 14px 16px; margin-bottom: 22px;
 }
+.scenario-guardrail { margin: 14px 0 20px; }
 .scenario-chart-title {
   font-size: 11.5px; color: var(--ink-2); font-weight: var(--w-med); margin-bottom: 6px;
 }
