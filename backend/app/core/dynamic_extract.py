@@ -295,3 +295,101 @@ def _build_hse() -> dict | None:
 
 def extract_hse() -> dict:
     return _cached("safety_hr", _build_hse)
+
+
+# ============================================================
+# Procurement
+# ============================================================
+
+_PROC_QUERIES = [
+    "MSE micro small enterprises public procurement policy actual budgeted crore FY",
+    "MSME procurement value crore percentage share total",
+    "GeM portal procurement value crore FY annual",
+    "purchase preference SC ST women entrepreneur reservation procurement",
+    "Make in India Class I local supplier procurement preference",
+    "vendor development MSME northeast outreach OIL India",
+]
+
+_PROC_SCHEMA = """{
+  "mse_procurement": [{
+    "fy": "YYYY-YY",
+    "value_inr_cr": float|null,
+    "budgeted_inr_cr": float|null,
+    "share_pct": float|null,
+    "note": str|null
+  }],
+  "gem_procurement": [{"fy": "YYYY-YY", "value_inr_cr": float|null}],
+  "purchase_preference_policies": [str]
+}"""
+
+
+def _build_proc() -> dict | None:
+    context = _gather_context(_PROC_QUERIES, collection="pq")
+    if not context:
+        return None
+    prompt = (
+        "Extract OIL India procurement disclosures (MSE share, GeM portal "
+        "procurement, purchase-preference policies) from the excerpts below. "
+        "If a value isn't disclosed for a given FY, leave the field null — "
+        "do NOT invent numbers or extrapolate from growth trends. "
+        "Return JSON ONLY.\n\n"
+        f"Schema:\n{_PROC_SCHEMA}\n\n"
+        f"Excerpts:\n{context}\n\n"
+        "JSON only."
+    )
+    return _extract_json(prompt, max_tokens=2500)
+
+
+def extract_procurement() -> dict:
+    return _cached("procurement", _build_proc)
+
+
+# ============================================================
+# Finance
+# ============================================================
+
+_FIN_QUERIES = [
+    "Five Years Performance at a Glance revenue from operations PBT PAT capex crore",
+    "standalone revenue total income FY 2024-25 2023-24 crore",
+    "profit before tax PBT PAT depreciation crore standalone",
+    "capital expenditure capex crore FY year on year",
+    "CSR obligation spend crore Section 135 annual",
+    "dividend equity share capital bonus issue OIL India",
+]
+
+_FIN_SCHEMA = """{
+  "five_year_snapshot": [{
+    "fy": "YYYY-YY",
+    "revenue_from_operations": float|null,
+    "pbt": float|null,
+    "pat": float|null,
+    "capex": float|null,
+    "equity_share_capital": float|null
+  }],
+  "csr_5yr": [{
+    "fy": "YYYY-YY",
+    "obligation_inr_cr": float|null,
+    "spent_inr_cr": float|null
+  }],
+  "highlights_fy25": [str]
+}"""
+
+
+def _build_finance() -> dict | None:
+    context = _gather_context(_FIN_QUERIES, collection="pq")
+    if not context:
+        return None
+    prompt = (
+        "Extract OIL India's standalone five-year financial snapshot and "
+        "CSR figures from the Annual-Report excerpts below. All values in "
+        "₹ crore. If a value isn't disclosed for a given FY, use null — "
+        "do NOT extrapolate. Return JSON ONLY.\n\n"
+        f"Schema:\n{_FIN_SCHEMA}\n\n"
+        f"Excerpts:\n{context}\n\n"
+        "JSON only."
+    )
+    return _extract_json(prompt, max_tokens=2500)
+
+
+def extract_finance() -> dict:
+    return _cached("finance", _build_finance)

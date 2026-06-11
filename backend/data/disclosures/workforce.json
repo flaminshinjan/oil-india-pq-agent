@@ -1,22 +1,17 @@
 {
-  "_source": "Extracted from OIL India Annual Reports (FY 2020-21 → FY 2024-25), BRSR (FY 2021-22 → FY 2024-25) and ESG Data Books (FY 23-24, FY 24-25). When a metric appears in multiple sources for the same year, the BRSR / ESG figure wins.",
-
-  "_provenance": {
-    "AR_FY24_25":    "OIL_India_Annual_Report_2024_25_0.pdf",
-    "AR_FY23_24":    "AnnualReport202324.pdf",
-    "AR_FY22_23":    "Annual_Report_2022_23.pdf",
-    "AR_FY21_22":    "Integrated_Annual_Report_2021_22new.pdf",
-    "AR_FY20_21":    "Integrated_Annual_Report_2020_21.pdf",
-    "BRSR_FY24_25":  "BRSR-2024-25.pdf",
-    "BRSR_FY23_24":  "Business Responsibility & Sustainability Report for FY 2023-24.pdf",
-    "BRSR_FY22_23":  "OILBRSR2022-23.pdf",
-    "BRSR_FY21_22":  "OILBRSR2021-22.pdf",
-    "ESG_FY24_25":   "ESG_DATA_BOOK_2024_2025.pdf",
-    "ESG_FY23_24":   "OIL_ESG_Data_Book_FY_24.pdf"
-  },
+  "_source": "ONLY corpus-confirmed values from OIL India BRSR / ESG / Annual Reports. Other rows are null and filled at runtime by the dynamic RAG extractor — no extrapolation.",
+  "_provenance": [
+    "OIL_India_Annual_Report_2024_25_0.pdf",
+    "BRSR-2024-25.pdf",
+    "Business Responsibility & Sustainability Report for FY 2023-24.pdf",
+    "OILBRSR2022-23.pdf",
+    "OIL_ESG_Data_Book_FY_24.pdf",
+    "ESG_DATA_BOOK_2024_2025.pdf",
+    "Integrated_Annual_Report_2021_22new.pdf"
+  ],
 
   "headcount_5yr": [
-    { "fy": "2020-21", "total": 6201, "executives": 1610, "workers": 4591 },
+    { "fy": "2020-21", "total": null, "executives": null, "workers": null },
     { "fy": "2021-22", "total": 6256, "executives": 1687, "workers": 4569 },
     { "fy": "2022-23", "total": 6759, "executives": 1772, "workers": 4987 },
     { "fy": "2023-24", "total": 6492, "executives": 1771, "workers": 4721 },
@@ -33,15 +28,14 @@
   },
 
   "women_pct_5yr": [
-    { "fy": "2020-21", "pct": 6.4 },
-    { "fy": "2021-22", "pct": 6.8 },
-    { "fy": "2022-23", "pct": 7.3 },
+    { "fy": "2020-21", "pct": null },
+    { "fy": "2021-22", "pct": null },
+    { "fy": "2022-23", "pct": null },
     { "fy": "2023-24", "pct": 7.64 },
     { "fy": "2024-25", "pct": 7.80 }
   ],
 
   "gender_split_5yr": [
-    { "fy": "2022-23", "exec_m": 1546, "exec_f": 226, "worker_m": 4716, "worker_f": 271 },
     { "fy": "2023-24", "exec_m": 1546, "exec_f": 225, "worker_m": 4450, "worker_f": 271 },
     { "fy": "2024-25", "exec_m": 1617, "exec_f": 237, "worker_m": 4289, "worker_f": 269 }
   ],
@@ -74,11 +68,11 @@
   },
 
   "training_intensity_5yr": [
-    { "fy": "2020-21", "hours_per_employee": 28.4 },
-    { "fy": "2021-22", "hours_per_employee": 31.6 },
-    { "fy": "2022-23", "hours_per_employee": 34.2 },
-    { "fy": "2023-24", "hours_per_employee": 38.9 },
-    { "fy": "2024-25", "hours_per_employee": 41.3 }
+    { "fy": "2020-21", "hours_per_employee": null },
+    { "fy": "2021-22", "hours_per_employee": null },
+    { "fy": "2022-23", "hours_per_employee": null },
+    { "fy": "2023-24", "hours_per_employee": null },
+    { "fy": "2024-25", "hours_per_employee": null }
   ],
 
   "turnover_pct_5yr": [
@@ -86,14 +80,8 @@
     { "fy": "2020-21", "total": 7.41, "voluntary": 0.27 },
     { "fy": "2021-22", "total": 6.45, "voluntary": 0.37 },
     { "fy": "2022-23", "total": 5.57, "voluntary": 0.39 },
-    { "fy": "2023-24", "total": 5.10, "voluntary": 0.42 },
-    { "fy": "2024-25", "total": 4.80, "voluntary": 0.45 }
-  ],
-
-  "attrition_by_gender_3yr": [
-    { "fy": "2022-23", "emp_male_pct": 5.6, "emp_female_pct": 5.2, "worker_male_pct": 6.1, "worker_female_pct": 5.4 },
-    { "fy": "2023-24", "emp_male_pct": 5.1, "emp_female_pct": 4.9, "worker_male_pct": 5.6, "worker_female_pct": 5.1 },
-    { "fy": "2024-25", "emp_male_pct": 4.8, "emp_female_pct": 4.7, "worker_male_pct": 5.2, "worker_female_pct": 4.9 }
+    { "fy": "2023-24", "total": null, "voluntary": null },
+    { "fy": "2024-25", "total": null, "voluntary": null }
   ],
 
   "apprentices_5yr": [
@@ -104,24 +92,10 @@
     { "fy": "2024-25", "count": 859 }
   ],
 
-  "welfare_coverage_pct_fy24": {
-    "health_insurance":     100,
-    "accident_insurance":   100,
-    "maternity_benefits":   100,
-    "paternity_benefits":   100,
-    "day_care_facility":    100,
-    "scope":                "permanent employees + workers"
-  },
-
-  "grievances_fy24": {
-    "employees":  { "filed": 3, "resolved": 3, "pending": 0 },
-    "workers":    { "filed": 7, "resolved": 7, "pending": 0 }
-  },
-
   "posh_complaints_3yr": [
     { "fy": "2022-23", "filed": 0, "upheld": 0, "pending": 0 },
     { "fy": "2023-24", "filed": 1, "upheld": 0, "pending": 0 },
-    { "fy": "2024-25", "filed": 0, "upheld": 0, "pending": 0 }
+    { "fy": "2024-25", "filed": null, "upheld": null, "pending": null }
   ],
 
   "swabalamban_fy25": {
@@ -132,15 +106,12 @@
 
   "performance_review_coverage_pct": {
     "executives_fy24": 100,
-    "workers_fy24":    100,
-    "executives_fy25": 100,
-    "workers_fy25":    100
+    "workers_fy24":    100
   },
 
   "engagement_survey_fy25": {
     "participation_pct": 91,
     "score":             76,
-    "benchmark":         "top quartile",
-    "note":              "First-ever org-wide employee engagement survey"
+    "note":              "First-ever org-wide employee engagement survey (Annual Report FY 2024-25)"
   }
 }

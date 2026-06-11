@@ -857,9 +857,12 @@ def _match_turnover(fy: str, rows: list[dict]) -> float | None:
 # ============================================================
 
 def procurement_metrics() -> dict:
-    """100% real — MSE + GeM portal disclosures from OIL Annual Reports
-    and BRSR. No synthetic PR bid walk-through anywhere on this page."""
-    real = _safe_load_json(DISCL_DIR / "procurement.json") or {}
+    """Procurement KPIs extracted dynamically from OIL's Annual Reports
+    + BRSR via RAG + Anthropic (cached 6 h). The curated JSON only
+    seeds the deep-merge with confirmed values; the LLM fills the rest
+    from corpus excerpts. No extrapolation."""
+    from .dynamic_extract import extract_procurement
+    real = extract_procurement()
     mse_rows = real.get("mse_procurement", []) or []
     gem_rows = real.get("gem_procurement", []) or []
     policies = real.get("purchase_preference_policies", []) or []
@@ -969,9 +972,11 @@ def procurement_metrics() -> dict:
 # ============================================================
 
 def finance_metrics() -> dict:
-    """Real five-year financial snapshot extracted from OIL's Annual
-    Reports (FY 2020-21 → FY 2024-25)."""
-    data = _safe_load_json(DISCL_DIR / "finance.json") or {}
+    """Five-year financial snapshot extracted dynamically from OIL's
+    Annual Reports via RAG + Anthropic (cached 6 h). Curated JSON is
+    a fallback only — when extraction returns a value, it wins."""
+    from .dynamic_extract import extract_finance
+    data = extract_finance()
     rows = data.get("five_year_snapshot", []) or []
     csr_rows = data.get("csr_5yr", []) or []
     headlines = data.get("highlights_fy25", []) or []

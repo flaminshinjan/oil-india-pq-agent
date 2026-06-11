@@ -1,32 +1,32 @@
 {
-  "_source": "Extracted from OIL India Annual Reports + BRSR (Public Procurement Policy disclosures). All figures verifiable in the corpus.",
+  "_source": "ONLY values directly confirmed in the corpus (Annual Reports + BRSR) are present here. Other FYs are null and will be populated by the dynamic RAG extractor at runtime — no extrapolation.",
   "_provenance": [
-    "Integrated_Annual_Report_2020_21.pdf",
     "Integrated_Annual_Report_2021_22new.pdf",
+    "Integrated_Annual_Report_2020_21.pdf",
     "AnnualReport202324.pdf",
-    "Business Responsibility & Sustainability Report for FY 2023-24.pdf",
-    "OIL_India_Annual_Report_2024_25_0.pdf"
+    "Business Responsibility & Sustainability Report for FY 2023-24.pdf"
   ],
 
   "mse_procurement": [
-    { "fy": "2020-21", "value_inr_cr": 858.0,   "share_pct": null,    "note": "" },
-    { "fy": "2021-22", "value_inr_cr": 1404.87, "share_pct": 27.20,   "note": "exceeded the statutory 25% MSE target" },
-    { "fy": "2022-23", "value_inr_cr": 1518.0,  "share_pct": null,    "note": "" },
-    { "fy": "2023-24", "value_inr_cr": 1722.0,  "share_pct": null,    "note": "Public Procurement Policy adhered to" }
+    { "fy": "2020-21", "value_inr_cr": null,    "budgeted_inr_cr": null,   "share_pct": null,  "note": null },
+    { "fy": "2021-22", "value_inr_cr": 1404.87, "budgeted_inr_cr": 467.00, "share_pct": 27.20, "note": "exceeded the statutory 25% MSE target" },
+    { "fy": "2022-23", "value_inr_cr": null,    "budgeted_inr_cr": null,   "share_pct": null,  "note": null },
+    { "fy": "2023-24", "value_inr_cr": null,    "budgeted_inr_cr": 750.00, "share_pct": null,  "note": "Public Procurement Policy adhered to" },
+    { "fy": "2024-25", "value_inr_cr": null,    "budgeted_inr_cr": null,   "share_pct": null,  "note": null }
   ],
 
   "gem_procurement": [
     { "fy": "2020-21", "value_inr_cr": 43.37 },
-    { "fy": "2021-22", "value_inr_cr": 412.0 },
-    { "fy": "2022-23", "value_inr_cr": 670.0 },
-    { "fy": "2023-24", "value_inr_cr": 1057.0 }
+    { "fy": "2021-22", "value_inr_cr": null  },
+    { "fy": "2022-23", "value_inr_cr": null  },
+    { "fy": "2023-24", "value_inr_cr": null  },
+    { "fy": "2024-25", "value_inr_cr": null  }
   ],
 
   "purchase_preference_policies": [
     "MSE Public Procurement Policy",
     "Purchase Preference for SC / ST entrepreneurs",
     "Purchase Preference for Women entrepreneurs",
-    "Make-in-India procurement preference (Class I local supplier)",
-    "Vendor development programmes for MSMEs in NE region"
+    "Make-in-India procurement preference (Class I local supplier)"
   ]
 }
