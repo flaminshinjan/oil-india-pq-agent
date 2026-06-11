@@ -225,7 +225,13 @@ export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClo
   }
 
   return (
-    <aside className={'chat-pane' + (mobileOpen ? ' is-mobile-open' : '')}>
+    <aside
+      className={
+        'chat-pane'
+        + (mobileOpen ? ' is-mobile-open' : '')
+        + (hasMessages ? ' is-expanded' : '')
+      }
+    >
       <div className="chat-pane-head">
         <span className="chat-title">
           <span className="chat-glyph">

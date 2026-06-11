@@ -30,6 +30,11 @@ pdfplumber==0.11.4
 # Utilities
 tqdm==4.67.1
 
+# Web search — Tavily provides a clean JSON API for ranked web results;
+# used as a last-resort fallback by the chat agent when the OIL corpus
+# doesn't have the answer.
+tavily-python==0.5.0
+
 # Voice — Pipecat pipeline (Deepgram STT → Anthropic LLM → Cartesia TTS),
 # served over WebSocket via the FastAPI integration. The unpinned range
 # lets pip pick a release whose pydantic requirement (>=2.10) lines up
