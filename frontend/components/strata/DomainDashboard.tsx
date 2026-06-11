@@ -91,7 +91,8 @@ interface Scenario {
   lenses: ScenarioLens[];
   timeline?: ScenarioTimeline[];
   scrape_status?: string;
-  live_sources?: string[];
+  live_sources?: { title: string; url: string; published?: string; snippet?: string }[];
+  live_source_method?: string;
   system_of_record?: string;
 }
 
@@ -496,10 +497,20 @@ function ScenarioModule({ scenario, bayesian }:
         <div className="scenario-foot">
           <span className="scenario-foot-label">Source</span>
           {scenario.system_of_record} · {scenario.scrape_status}
-          {scenario.live_sources && scenario.live_sources.length > 0 && (
-            <span> · {scenario.live_sources.length} live link(s)</span>
-          )}
         </div>
+      )}
+      {scenario.live_sources && scenario.live_sources.length > 0 && (
+        <ul className="scenario-sources">
+          {scenario.live_sources.slice(0, 5).map((s, i) => (
+            <li key={i}>
+              <a href={s.url} target="_blank" rel="noopener noreferrer"
+                 className="scenario-source-link" title={s.snippet || s.url}>
+                {s.title || s.url}
+              </a>
+              {s.published && <span className="scenario-source-date">{s.published}</span>}
+            </li>
+          ))}
+        </ul>
       )}
     </section>
   );
