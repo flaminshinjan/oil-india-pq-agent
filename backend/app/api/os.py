@@ -97,33 +97,45 @@ async def os_metrics():
             "fy": latest_with_rrr.fy,
         })
 
-    # HSE: days since last LTI — derived from the synthetic HSE feed if
-    # available; otherwise we surface "no LTI on record" as the safe default.
+    # HSE — surface the latest worker LTIFR from BRSR instead of a
+    # hardcoded "days since LTI". The real number is more meaningful
+    # and traces back to a published OIL disclosure.
     import json
     from pathlib import Path
-    from ..config import settings
-    lti_days = None
+    safety_path = Path(__file__).resolve().parents[2] / "data" / "disclosures" / "safety_hr.json"
+    ltifr_value = None
+    ltifr_fy = None
+    ltifr_prev = None
     try:
-        p = Path(settings.runtime_data_dir) / "synthetic" / "hse_lti.json"
-        if p.exists():
-            j = json.loads(p.read_text())
-            lti_days = int(j.get("days_since_last_lti"))
+        if safety_path.exists():
+            j = json.loads(safety_path.read_text())
+            rows = j.get("ltifr_5yr") or []
+            for r in reversed(rows):
+                if r.get("workers") is not None:
+                    ltifr_value = r["workers"]
+                    ltifr_fy = r["fy"]
+                    break
+            # previous non-null worker LTIFR for the trend note
+            for r in reversed(rows[:-1] if rows else []):
+                if r.get("workers") is not None:
+                    ltifr_prev = r["workers"]
+                    break
     except Exception:
         pass
-    if lti_days is None:
-        # Compute from today against a fixed prior LTI date in the JSON, or
-        # fall back to a derived static. We pick 14 Jan 2026 to match what
-        # the synthetic feed would normally report.
-        delta = (datetime.now(IST).date() - datetime(2026, 1, 14).date()).days
-        lti_days = max(0, delta)
+    note = "BRSR · per million person-hours"
+    if ltifr_prev is not None and ltifr_value is not None:
+        delta = ltifr_value - ltifr_prev
+        if abs(delta) > 0.001:
+            arrow = "↓" if delta < 0 else "↑"
+            note = f"{arrow} {abs(delta):.3f} vs prior FY"
     metrics.append({
         "id": "lti",
-        "label": "Days since last LTI",
-        "value": str(lti_days),
-        "unit": "days",
-        "note": "no lost-time incidents" if lti_days > 30 else "recent incident under review",
-        "amber": False,
-        "fy": None,
+        "label": "Worker LTIFR",
+        "value": f"{ltifr_value:.3f}" if ltifr_value is not None else "—",
+        "unit": "per M hrs",
+        "note": note,
+        "amber": (ltifr_value is not None and ltifr_value > 0.2),
+        "fy": ltifr_fy,
     })
 
     return {"metrics": metrics, "as_of": datetime.now(IST).isoformat()}
