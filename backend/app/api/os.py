@@ -241,8 +241,14 @@ async def os_targets():
 
     expl = data.exploratory_drilling()
     dev = data.development_drilling()
-    expl_real = [r for r in expl if r.target_meterage >= 1000]
-    dev_real = [r for r in dev if r.target_meterage >= 1000]
+    # Only drop rows where BOTH target_w and actual_w are zero (empty
+    # annexure shells). The previous `target_meterage >= 1000` filter
+    # silently dropped small but legitimate wells — bug surfaced when
+    # the chat agent reported 74 wells but the dashboard showed 71.
+    def _real(r):
+        return (r.target_wells > 0) or (r.actual_wells > 0)
+    expl_real = [r for r in expl if _real(r)]
+    dev_real = [r for r in dev if _real(r)]
     wells_actual_total = sum(r.actual_wells for r in expl_real) + sum(r.actual_wells for r in dev_real)
     wells_target_fy = sum(r.target_wells for r in expl_real) + sum(r.target_wells for r in dev_real)
     wells_behind = max(0, wells_target_fy - wells_actual_total)
