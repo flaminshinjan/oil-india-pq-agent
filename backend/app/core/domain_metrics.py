@@ -151,67 +151,69 @@ def _fmt(v: float | None, fmt: str = "{:.2f}") -> str:
 # ============================================================
 
 def production_metrics() -> dict:
+    from . import predictive as P
+
     rows = _ten_year_table()
     if not rows:
         return {"kpis": [], "breakdowns": [], "trend": None, "highlights": []}
 
-    crude_l, crude_p, crude_5 = _latest_with(rows, "crude_mmt")
-    gas_l,   gas_p,   _       = _latest_with(rows, "gas_mmscm")
-    rrr_l,   _,       _       = _latest_with(rows, "rrr")
+    crude_l, crude_p, _ = _latest_with(rows, "crude_mmt")
+    gas_l,   gas_p,   _ = _latest_with(rows, "gas_mmscm")
+    rrr_l,   rrr_p,   _ = _latest_with(rows, "rrr")
 
     _, crude_yoy_lbl = _yoy(crude_l.get("crude_mmt") if crude_l else None,
                             crude_p.get("crude_mmt") if crude_p else None)
     _, gas_yoy_lbl   = _yoy(gas_l.get("gas_mmscm") if gas_l else None,
                             gas_p.get("gas_mmscm") if gas_p else None)
-    five_pct, _ = _yoy(
-        crude_l.get("crude_mmt") if crude_l else None,
-        crude_5.get("crude_mmt") if crude_5 else None,
-    )
 
-    crude_amber = (crude_l and crude_p and crude_l["crude_mmt"] < crude_p["crude_mmt"])
-    gas_amber   = (gas_l   and gas_p   and gas_l["gas_mmscm"]  < gas_p["gas_mmscm"])
+    crude_amber = bool(crude_l and crude_p and crude_l["crude_mmt"] < crude_p["crude_mmt"])
+    gas_amber   = bool(gas_l   and gas_p   and gas_l["gas_mmscm"]  < gas_p["gas_mmscm"])
 
-    # FY25-26 cumulative target vs achievement (from the live annexure).
+    # FY25-26 cumulative target vs achievement, with JV (live annexure).
     totals = _production_totals()
     crude_ach = (totals.get("crude_actual", 0) / totals["crude_target"]
                  if totals.get("crude_target") else None)
     gas_ach = (totals.get("gas_actual", 0) / totals["gas_target"]
                if totals.get("gas_target") else None)
 
+    rrr_latest = rrr_l.get("rrr") if rrr_l else None
+
+    # ---- 4 KPIs (per brief) ----
     kpis = [
         _kpi("Crude oil production",
              _fmt(crude_l.get("crude_mmt") if crude_l else None),
-             "MMT", crude_yoy_lbl, amber=bool(crude_amber),
+             "MMT", crude_yoy_lbl, amber=crude_amber,
              note=f"FY{crude_l['fy']} actual" if crude_l else ""),
         _kpi("Natural gas production",
              _fmt(gas_l.get("gas_mmscm") if gas_l else None, "{:.0f}"),
-             "MMSCM", gas_yoy_lbl, amber=bool(gas_amber),
+             "MMSCM", gas_yoy_lbl, amber=gas_amber,
              note=f"FY{gas_l['fy']} actual" if gas_l else ""),
-        _kpi("FY25-26 crude % achieved",
-             f"{int(round(crude_ach * 100))}%" if crude_ach is not None else "—",
-             "",
-             f"{_fmt(totals.get('crude_actual'))} of {_fmt(totals.get('crude_target'))} MMT"
-             if totals else "cumulative MTD",
-             amber=(crude_ach is not None and crude_ach < 0.95)),
-        _kpi("FY25-26 gas % achieved",
-             f"{int(round(gas_ach * 100))}%" if gas_ach is not None else "—",
-             "",
-             f"{_fmt(totals.get('gas_actual'))} of {_fmt(totals.get('gas_target'))} MMSCM"
-             if totals else "cumulative MTD",
-             amber=(gas_ach is not None and gas_ach < 0.95)),
+        _kpi("Annual target achievement",
+             f"{crude_ach*100:.1f}%" if crude_ach is not None else "—",
+             "crude · with JV",
+             f"gas {gas_ach*100:.1f}%" if gas_ach is not None else "",
+             amber=(crude_ach is not None and crude_ach < 0.95),
+             note=f"{_fmt(totals.get('crude_actual'))} of "
+                  f"{_fmt(totals.get('crude_target'))} MMT cum." if totals else ""),
+        _kpi("Reserve Replacement Ratio",
+             _fmt(rrr_latest),
+             "×",
+             f"FY{rrr_l['fy']} · {'below' if (rrr_latest or 0) < 1 else 'above'} 1.0"
+             if rrr_l else "",
+             amber=(rrr_latest is not None and rrr_latest < 1.0)),
     ]
 
-    # State-level breakdown from FY perf annexure (Assam / Arunachal / Rajasthan)
+    # ---- breakdown: crude by state (FY26 MTD) ----
     breakdowns: list[dict] = []
     state_split = _production_by_state()
     if state_split:
         breakdowns.append({
-            "title": "Crude production by state (FY25-26 MTD)",
+            "title": "Crude production by state (FY25-26 cum.)",
             "unit": "MMT",
             "items": state_split,
         })
 
-    # Trend chart — last 8 FYs of crude MMT vs gas MMSCM
+    # ---- trend: crude vs gas, last 8 FYs ----
     trend = {
         "label": "Crude (MMT) and Gas (MMSCM, ÷ 1000)",
         "unit": "indexed",
@@ -224,38 +226,156 @@ def production_metrics() -> dict:
         ],
     }
 
-    highlights = []
-    if five_pct is not None:
-        if five_pct < -2:
-            highlights.append(
-                f"Crude output has declined {abs(five_pct):.1f}% over five "
-                f"years — well below the 4 MMT goal."
-            )
-        elif five_pct > 2:
-            highlights.append(
-                f"Crude output is up {five_pct:.1f}% over five years; on "
-                f"trajectory toward the 4 MMT goal."
-            )
-    if rrr_l and rrr_l.get("rrr") and rrr_l["rrr"] >= 1.0:
+    # ============ 3 PREDICTIVE INSIGHTS ============
+    insights: list[dict] = []
+    wo = _workover_table()
+    wells_by_fy = _drilling_wells_by_fy()
+
+    # Align workover totals & crude on the overlapping FYs (FY21→latest).
+    common_fys = [fy for fy in wo.get("fys", []) if any(r["fy"] == fy for r in rows)]
+    crude_by_fy = {r["fy"]: r.get("crude_mmt") for r in rows}
+    wo_actual_fys = [fy for fy in common_fys if wo["total"].get(fy)]
+    # Treat the final workover year as a forward PLAN, not an actual, for the fit.
+    fit_fys = [fy for fy in wo_actual_fys if crude_by_fy.get(fy) is not None]
+    fit_fys = fit_fys[:-1] if len(fit_fys) > 1 else fit_fys  # drop FY26 plan from fit
+    wo_model = P.workover_production_model(
+        [wo["total"][fy] for fy in fit_fys],
+        [crude_by_fy[fy] for fy in fit_fys],
+        forecast_workovers=float(wo["total"].get(wo["fys"][-1], 307) if wo.get("fys") else 307),
+    ) if len(fit_fys) >= 3 else None
+    decline = P.exponential_decline([r["fy"] for r in rows],
+                                    [r["crude_mmt"] for r in rows])
+
+    # Insight 1 — recovery plateau + decline-curve / workover forecast.
+    crude_trough = min((r["crude_mmt"] for r in rows if r["crude_mmt"]), default=None)
+    pred1 = {}
+    if wo_model:
+        pred1 = {
+            "label": "Workover-driven production model + base decline",
+            "method": f"OLS crude~workovers (R²={wo_model['r2']}, n={len(fit_fys)})"
+                      + (f"; base decline {decline['annual_decline_pct']}%/yr"
+                         if decline else ""),
+            "output": (
+                f"At {int(wo_model['forecast_workovers'])} sustained workovers the "
+                f"model puts FY27 crude near {wo_model['fy27_forecast_mmt']} MMT. "
+                f"Holding {wo_model['hold_target_mmt']} MMT needs "
+                f"~{wo_model['required_workovers_for_target']} workovers/yr; the "
+                f"mature base alone declines {decline['annual_decline_pct'] if decline else '—'}%/yr."
+            ),
+            "metrics": {**wo_model, **({"base_decline_pct": decline['annual_decline_pct']} if decline else {})},
+        }
+    insights.append(_insight(
+        "prod-i1",
+        "Production recovery has plateaued — FY27 risk flagged",
+        f"Crude climbed from a {crude_trough} MMT trough (FY20-21) to "
+        f"{crude_l.get('crude_mmt') if crude_l else '—'} MMT, then printed its first "
+        f"decline in five years. Workovers up "
+        f"{wo_model['workover_growth_pct'] if wo_model else '—'}% over the same window "
+        f"track the recovery — but the marginal barrel per workover is thinning.",
+        l1_title="10-yr trend + FY26 vs BE trajectory",
+        l1="Recovery phase FY21→FY25, then FY26 turns down (−0.3%). Gas at 85.6% of "
+           "the Assam BE for FY26 — the base fields are carrying the decline.",
+        l2_title="State-wise contribution",
+        l2="Assam base-field decline offset by Arunachal (119% of target) while "
+           "Rajasthan/JV underdeliver (87–88%).",
+        predictive=pred1,
+    ))
+
+    # Insight 2 — RRR < 1.0 three years running; Monte Carlo runway.
+    rrr_rows = [r for r in rows if r.get("rrr") is not None]
+    acc_rows = [r for r in rows if r.get("rec_mmtoe") is not None]
+    # production-equivalent depletion = accretion / RRR (definition of RRR)
+    acc_seq, prodeq_seq = [], []
+    for r in rrr_rows:
+        if r.get("rrr") and r.get("rec_mmtoe"):
+            acc_seq.append(r["rec_mmtoe"])
+            prodeq_seq.append(r["rec_mmtoe"] / r["rrr"])
+    mc = P.rrr_monte_carlo(acc_seq, prodeq_seq,
+                           reserve_2p_latest=(rrr_rows[-1].get("oil_2p_mmt") or 0),
+                           horizon=3) if len(acc_seq) >= 3 else None
+    oil_2p_l, _, _ = _latest_with(rows, "oil_2p_mmt")
+    gas_2p_l, _, _ = _latest_with(rows, "gas_2p_bcm")
+    rli_oil = P.reserve_life_index(oil_2p_l.get("oil_2p_mmt") if oil_2p_l else None,
+                                   crude_l.get("crude_mmt") if crude_l else None)
+    rli_gas = P.reserve_life_index(gas_2p_l.get("gas_2p_bcm") if gas_2p_l else None,
+                                   (gas_l.get("gas_mmscm") / 1000) if gas_l else None)
+    pred2 = {}
+    if mc:
+        pred2 = {
+            "label": "Monte-Carlo 2P / RRR trajectory",
+            "method": f"{mc['n_sims']:,} sims · accretion ~ N({mc['hist_mean_accretion']}, "
+                      f"{mc['hist_std_accretion']}); production CAGR {mc['production_cagr_pct']}%",
+            "output": (
+                f"P(RRR ≥ 1.0 by FY28) ≈ {mc['prob_rrr_ge_1_at_horizon']*100:.0f}% on the "
+                f"current path. Mean accretion must rise ~{mc['accretion_uplift_pct']}% "
+                f"(to ~{mc['required_accretion_for_rrr1']} MMToE/yr) to hold RRR at 1.0."
+            ),
+            "metrics": {**mc, "reserve_life_oil_yrs": rli_oil, "reserve_life_gas_yrs": rli_gas},
+        }
+    insights.append(_insight(
+        "prod-i2",
+        "RRR below 1.0 for three straight years — the reserves runway",
+        f"RRR has slid {rrr_rows[0]['rrr'] if rrr_rows else '—'} → "
+        f"{rrr_rows[-1]['rrr'] if rrr_rows else '—'} (FY21→FY25). 2P oil is down to "
+        f"{oil_2p_l.get('oil_2p_mmt') if oil_2p_l else '—'} MMT while 2P gas has risen "
+        f"to {gas_2p_l.get('gas_2p_bcm') if gas_2p_l else '—'} BCM.",
+        l1_title="RRR vs the 1.0 threshold",
+        l1="RRR last cleared 1.0 in FY22-23. Reserve waterfall: accretion has held "
+           "near 5.9–6.2 MMToE while production grew faster, so replacement keeps slipping.",
+        l2_title="Reserve Life Index — oil vs gas divergence",
+        l2=f"At current output, oil 2P ≈ {rli_oil} yrs of cover; gas 2P ≈ {rli_gas} yrs. "
+           f"The runway is an oil problem, not a gas one — and unbooked Andaman gas "
+           f"could reset the gas line entirely (see Exploration scenario).",
+        predictive=pred2,
+    ))
+
+    # Insight 3 — gasification + Andaman makes it strategy.
+    mix = P.energy_mix_crossover([r["fy"] for r in rows],
+                                 [r["crude_mmt"] for r in rows],
+                                 [r["gas_mmscm"] for r in rows])
+    pred3 = {}
+    if mix:
+        pred3 = {
+            "label": "Energy-mix crossover (gas share of MMToE)",
+            "method": "Crude→MMToE ×1.0, gas→MMToE ×0.90/BCM; linear fit on gas share",
+            "output": (
+                f"Gas is {mix['latest_gas_share_pct']}% of output today and rising "
+                f"~{mix['share_slope_pts_per_yr']} pts/yr — crossing 50% around "
+                f"{mix['crossover_fy_50pct']} on the organic trend. An Andaman "
+                f"materialisation pulls that crossover forward."
+            ),
+            "metrics": mix,
+        }
+    insights.append(_insight(
+        "prod-i3",
+        "The portfolio is gasifying — and Andaman makes it strategy",
+        "Gas grew ~15% over the decade vs ~6% for crude; gas 2P rising while oil 2P "
+        "falls. FY26 JV volumes are material (Dirok 68.7 MMSCM) and DSF-III added "
+        "23.3 MMSCM in year one. The Andaman gas campaign confirms the direction.",
+        l1_title="Oil vs gas, indexed to FY16 = 100",
+        l1="Gas output has structurally outgrown crude; the energy-mix share chart "
+           "shows the gas line bending up as crude flattens.",
+        l2_title="With-JV vs without-JV; new-asset ramps",
+        l2="DSF-III (Rajasthan) and NRB-2 ramp curves add gas the legacy base can't. "
+           "JV gas (Dirok) is now a material slice of the total.",
+        predictive=pred3,
+    ))
+
+    highlights = [
+        f"FY26 crude {crude_l.get('crude_mmt') if crude_l else '—'} MMT — first decline "
+        f"in five years after the FY21→FY25 recovery.",
+        f"RRR at {rrr_latest} (FY{rrr_l['fy'] if rrr_l else '—'}) — third straight year "
+        f"below 1.0; reserves replacement is the structural watch-item.",
+    ]
+    if mix:
         highlights.append(
-            f"RRR of {rrr_l['rrr']:.2f} (FY{rrr_l['fy']}) means OIL is "
-            f"replacing reserves at ≥1× of what it produced that year."
-        )
-    if crude_ach is not None and crude_ach < 0.95:
-        gap = (totals.get("crude_target", 0) - totals.get("crude_actual", 0))
-        highlights.append(
-            f"FY25-26 crude achievement at {int(round(crude_ach * 100))}% of "
-            f"target — {gap:.2f} MMT short of plan."
-        )
-    if gas_ach is not None and gas_ach < 0.95:
-        gap = (totals.get("gas_target", 0) - totals.get("gas_actual", 0))
-        highlights.append(
-            f"FY25-26 gas achievement at {int(round(gas_ach * 100))}% — "
-            f"{gap:.0f} MMSCM short of plan."
+            f"Gas now {mix['latest_gas_share_pct']}% of MMToE output and climbing — "
+            f"50% crossover modelled around {mix['crossover_fy_50pct']}."
         )
 
     return {"kpis": kpis, "breakdowns": breakdowns, "trend": trend,
-            "highlights": highlights}
+            "highlights": highlights, "insights": insights,
+            "milestones": _milestones("PRODUCTION")}
 
 
 def _fy_perf_wb():
@@ -401,19 +521,289 @@ def _seismic_fy_progress() -> dict:
 
 
 # ============================================================
+# Readers for the v2 Production / Exploration brief
+# ============================================================
+
+def _workover_drilling_wb():
+    path = DB_DIR / "Workover & Drilling 5 yrs.xlsx"
+    if not path.exists():
+        return None
+    try:
+        return openpyxl.load_workbook(path, data_only=True)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"[domain_metrics] workover xlsx open failed: {exc}")
+        return None
+
+
+def _nil(v) -> int:
+    """The drilling file uses '¾' to mean nil. Coerce to int, ¾→0."""
+    try:
+        return int(float(v))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _workover_table() -> dict:
+    """Workover operations by FY, from cols K–Q of the 5-yr file.
+
+        {"fys": [...], "total": {fy: n}, "ogps": {fy: n}, "rajasthan": {fy: n}}
+    """
+    wb = _workover_drilling_wb()
+    if not wb:
+        return {}
+    ws = wb.active
+    # Row 2 cols 12..17 hold the FY headers; rows 3/4/5 = OGPS / Rajasthan / Total
+    fys, ogps, raj, total = [], {}, {}, {}
+    cols = range(12, 18)
+    for c in cols:
+        fy = ws.cell(2, c).value
+        if not isinstance(fy, str) or "-" not in fy:
+            continue
+        fy = fy.strip()
+        fys.append(fy)
+        ogps[fy] = _nil(ws.cell(3, c).value)
+        raj[fy] = _nil(ws.cell(4, c).value)
+        total[fy] = _nil(ws.cell(5, c).value)
+    return {"fys": fys, "total": total, "ogps": ogps, "rajasthan": raj}
+
+
+def _drilling_wells_by_fy() -> dict:
+    """Wells drilled by FY from the 5-yr file (cols A–H).
+
+        {fy: {"expl": n, "dev": n, "total": n, "offshore": n, "onshore": n}}
+    Rows 4..8 cover FY2024-25 down to FY2020-21; '¾' = nil.
+    """
+    wb = _workover_drilling_wb()
+    if not wb:
+        return {}
+    ws = wb.active
+    out: dict = {}
+    for r in range(4, 9):
+        fy = ws.cell(r, 1).value
+        if not isinstance(fy, str) or "-" not in fy:
+            continue
+        fy = fy.strip()
+        expl = _nil(ws.cell(r, 2).value) + _nil(ws.cell(r, 3).value)   # offshore+onshore
+        dev = _nil(ws.cell(r, 4).value) + _nil(ws.cell(r, 5).value)
+        offshore = _nil(ws.cell(r, 2).value) + _nil(ws.cell(r, 4).value)
+        onshore = _nil(ws.cell(r, 3).value) + _nil(ws.cell(r, 5).value)
+        total = _nil(ws.cell(r, 8).value) or (expl + dev)
+        out[fy] = {"expl": expl, "dev": dev, "total": total,
+                   "offshore": offshore, "onshore": onshore}
+    return out
+
+
+def _expl_regime_fy26() -> list[dict]:
+    """FY25-26 exploratory drilling by licensing regime, from Annexure-III.
+
+    Each regime block ends in a 'Total Exploratory' row; we capture the
+    block's target/actual wells + meterage and the achievement %.
+    """
+    wb = _fy_perf_wb()
+    if not wb:
+        return []
+    sn = next((n for n in wb.sheetnames if "Expl. Drl" in n), None)
+    if not sn:
+        return []
+    ws = wb[sn]
+    out: list[dict] = []
+    current = None
+    state = None
+    for r in range(8, ws.max_row + 1):
+        a = ws.cell(r, 1).value
+        if isinstance(a, str) and a.strip():
+            label = a.strip()
+            if label.lower().startswith("total exploratory"):
+                if current:
+                    tgt_w = _nil(ws.cell(r, 6).value)
+                    act_w = _nil(ws.cell(r, 8).value)
+                    tgt_m = _as_float(ws.cell(r, 5).value) or 0
+                    act_m = _as_float(ws.cell(r, 7).value) or 0
+                    pct = (act_m / tgt_m) if tgt_m else None
+                    out.append({
+                        "regime": current, "state": state,
+                        "target_wells": tgt_w, "actual_wells": act_w,
+                        "target_m": round(tgt_m), "actual_m": round(act_m),
+                        "pct": round(pct, 3) if pct is not None else None,
+                    })
+                current = None
+            else:
+                current = label
+                state = (ws.cell(r, 2).value or "").strip() if isinstance(ws.cell(r, 2).value, str) else None
+    return out
+
+
+def _accretion_series() -> dict:
+    """Reserve accretion (MMToE total) by FY from the 10-yr Excel."""
+    rows = _ten_year_table()
+    return {r["fy"]: r.get("rec_mmtoe") for r in rows if r.get("rec_mmtoe") is not None}
+
+
+# ---- insight helpers --------------------------------------------------
+
+def _insight(iid: str, title: str, summary: str,
+             l1_title: str = "", l1: str = "",
+             l2_title: str = "", l2: str = "",
+             predictive: dict | None = None,
+             links: list[str] | None = None) -> dict:
+    """One analytical insight card. `predictive` carries the model output
+    so the UI can render a 'Predictive' block with real computed numbers."""
+    return {
+        "id": iid, "title": title, "summary": summary,
+        "drilldown": {"l1_title": l1_title, "l1": l1,
+                      "l2_title": l2_title, "l2": l2},
+        "predictive": predictive or {},
+        "links": links or [],
+    }
+
+
+def _pct(v) -> str:
+    return f"{v*100:.1f}%" if isinstance(v, (int, float)) else "—"
+
+
+def _milestones(page: str | None = None) -> list[dict]:
+    """Live-milestones strip. Each is a record_type='milestone' row; the
+    Andaman items carry status='unbooked' and never feed the KPI layer."""
+    rows = _ten_year_table()
+    by_fy = {r["fy"]: r for r in rows}
+    crude_latest = next((r for r in reversed(rows) if r.get("crude_mmt")), {})
+    crude_trough = min((r["crude_mmt"] for r in rows if r.get("crude_mmt")), default=None)
+    acc_latest = next((r for r in reversed(rows) if r.get("rec_mmtoe")), {})
+    wo = _workover_table()
+    wo_fys = wo.get("fys", [])
+    regimes = _expl_regime_fy26()
+    nominated = next((r for r in regimes if r["regime"] == "Nominated"), {})
+
+    items: list[dict] = [
+        {
+            "title": f"Highest crude production in a decade — {crude_latest.get('crude_mmt')} MMT",
+            "body": f"Up from the {crude_trough} MMT FY20-21 trough.",
+            "source": "10-yr Excel / AR FY24-25", "tags": ["PRODUCTION"],
+            "status": "booked",
+        },
+        {
+            "title": f"{nominated.get('actual_wells', '—')} exploratory wells vs "
+                     f"{nominated.get('target_wells', '—')} target (FY26)",
+            "body": f"Nominated-block meterage at {_pct(nominated.get('pct'))} of BE.",
+            "source": "FY26 MIS", "tags": ["EXPLORATION"], "status": "booked",
+        },
+        {
+            "title": f"Best reserve accretion in 5 years — {acc_latest.get('rec_mmtoe')} MMToE",
+            "body": "FY26 reserve accretion, up year-on-year.",
+            "source": "10-yr Excel", "tags": ["EXPLORATION"], "status": "booked",
+        },
+        {
+            "title": "DSF-III Rajasthan onstream",
+            "body": "First gas: 23.3 MMSCM in FY26.",
+            "source": "FY26 MIS", "tags": ["PRODUCTION"], "status": "booked",
+        },
+        {
+            "title": "Workover engine at record scale",
+            "body": f"{wo['total'].get(wo_fys[-2]) if len(wo_fys) >= 2 else '—'} ops FY25; "
+                    f"{wo['total'].get(wo_fys[-1]) if wo_fys else '—'} planned FY26.",
+            "source": "Workover Excel", "tags": ["PRODUCTION"], "status": "booked",
+        },
+        {
+            "title": "Second Andaman gas discovery — Vijayapuram-3 (Jun 2026)",
+            "body": "2 of 3 wells gas-bearing; 15 km offshore, 355 m water depth; "
+                    "continuous flaring on test.",
+            "source": "Exchange disclosure", "tags": ["EXPLORATION"], "status": "unbooked",
+        },
+        {
+            "title": "Andaman frontier opens — Vijayapuram-2 (Sep 2025)",
+            "body": "First gas in the basin; samples 87% methane; stock +3% on announcement.",
+            "source": "Exchange disclosure", "tags": ["EXPLORATION"], "status": "unbooked",
+        },
+    ]
+    if page:
+        items = [m for m in items if page.upper() in m["tags"]]
+    return items
+
+
+def _andaman_scenario() -> dict | None:
+    """Andaman 'Possible Upside' scenario module — probability-weighted
+    reasoning over an UNBOOKED frontier discovery. Every figure is
+    illustrative; nothing here sums into 2P / accretion / RRR."""
+    from . import predictive as P
+    from .andaman import get_andaman
+
+    facts = get_andaman()
+    rows = _ten_year_table()
+    gas_2p_l, _, _ = _latest_with(rows, "gas_2p_bcm")
+    gas_l, _, _ = _latest_with(rows, "gas_mmscm")
+    cur_2p_gas = gas_2p_l.get("gas_2p_bcm") if gas_2p_l else 139.0
+    annual_gas_bcm = (gas_l.get("gas_mmscm") / 1000) if gas_l else 3.19
+
+    sens = P.andaman_reserves_sensitivity(cur_2p_gas, annual_gas_bcm)
+    bayes = P.bayesian_success_update(facts.get("wells_gas_bearing", 2),
+                                      facts.get("wells_drilled", 3))
+
+    lenses = []
+    if sens:
+        lenses.append({
+            "lens": "Reserves",
+            "output": (
+                f"Every 25 BCM hypothetically booked ≈ +{sens['per_25bcm_uplift_pct']}% "
+                f"to 2P gas ({sens['current_2p_gas_bcm']} BCM today) ≈ "
+                f"+{sens['per_25bcm_life_yrs']} yrs of gas reserve life."
+            ),
+            "table": sens["rows"],
+            "hypothetical": True,
+        })
+    if bayes:
+        lenses.append({
+            "lens": "Risk",
+            "output": (
+                f"Frontier success prior {bayes['prior_mean']} (≈1-in-5) updates to "
+                f"{bayes['posterior_mean']} after a {bayes['observed']} gas-bearing "
+                f"result (90% CI {bayes['cred_interval_90'][0]}–{bayes['cred_interval_90'][1]}). "
+                f"Next update trigger: {facts.get('next_update_trigger')}."
+            ),
+            "table": None,
+            "hypothetical": True,
+        })
+    lenses.append({
+        "lens": "Production mix",
+        "output": "A post-FY32 Andaman gas ramp layered onto the gasification forecast "
+                  "pulls the 50%-of-output crossover years earlier than the organic trend "
+                  "(see Production Insight 3).",
+        "table": None, "hypothetical": True,
+    })
+
+    return {
+        "label": "Possible Upside — Andaman frontier (illustrative / unbooked)",
+        "subtitle": facts.get("capex_plan_note"),
+        "guardrail": "Illustrative only. No public reserve estimate exists; nothing here "
+                     "is booked into 2P, accretion or RRR. All volumes are hypothetical analogs.",
+        "facts": {
+            "wells_drilled": facts.get("wells_drilled"),
+            "wells_gas_bearing": facts.get("wells_gas_bearing"),
+            "wells": facts.get("wells"),
+            "reserve_estimate_published": facts.get("reserve_estimate_published"),
+            "booked_in_2p": facts.get("booked_in_2p"),
+        },
+        "lenses": lenses,
+        "timeline": facts.get("timeline"),
+        "scrape_status": facts.get("scrape_status"),
+        "live_sources": facts.get("live_sources"),
+        "system_of_record": facts.get("system_of_record"),
+    }
+
+
+# ============================================================
 # Domain: Exploration
 # ============================================================
 
 def exploration_metrics() -> dict:
+    from . import predictive as P
+
     rows = _ten_year_table()
     if not rows:
         return {"kpis": [], "breakdowns": [], "trend": None, "highlights": []}
 
     rec_l, rec_p, _ = _latest_with(rows, "rec_mmtoe")
-    rec_amber = (rec_l and rec_p and rec_l["rec_mmtoe"] < rec_p["rec_mmtoe"])
 
-    # FY25-26 drilling progress from the live annexure — this IS the
-    # current-year data the user expected to see.
+    # FY25-26 drilling progress from the live annexure.
     drilling = _drilling_fy_progress()
     expl = drilling.get("exploratory") or {}
     devp = drilling.get("development") or {}
@@ -422,36 +812,43 @@ def exploration_metrics() -> dict:
     devp_ach = (devp["actual_w"] / devp["target_w"]
                 if devp.get("target_w") else None)
 
+    # New v2 data sources.
+    wells_by_fy = _drilling_wells_by_fy()
+    wo = _workover_table()
+    regimes = _expl_regime_fy26()
+    nominated = next((r for r in regimes if r["regime"] == "Nominated"), {})
+
+    # Wells-drilled total: latest vs earliest in the 5-yr file.
+    well_fys = sorted(wells_by_fy.keys())
+    wells_latest = wells_by_fy.get(well_fys[-1], {}) if well_fys else {}
+    wells_first = wells_by_fy.get(well_fys[0], {}) if well_fys else {}
+    wo_fys = wo.get("fys", [])
+    wo_fy25 = wo["total"].get(wo_fys[-2]) if len(wo_fys) >= 2 else None
+    wo_fy26 = wo["total"].get(wo_fys[-1]) if wo_fys else None
+
+    # ---- 4 KPIs (per brief) ----
     kpis = [
-        _kpi("Exploratory wells FY25-26",
-             f"{expl.get('actual_w', 0)} of {expl.get('target_w', 0)}",
-             "wells",
-             f"{int(round(expl_ach * 100))}% of plan"
-             if expl_ach is not None else "BE vs cum actual",
-             amber=(expl_ach is not None and expl_ach < 0.9),
-             note=f"{_fmt(expl.get('actual_m'), '{:,.0f}')} of "
-                  f"{_fmt(expl.get('target_m'), '{:,.0f}')} m drilled"
-                  if expl else ""),
-        _kpi("Development wells FY25-26",
-             f"{devp.get('actual_w', 0)} of {devp.get('target_w', 0)}",
-             "wells",
-             f"{int(round(devp_ach * 100))}% of plan"
-             if devp_ach is not None else "BE vs cum actual",
-             amber=(devp_ach is not None and devp_ach < 0.9),
-             note=f"{_fmt(devp.get('actual_m'), '{:,.0f}')} of "
-                  f"{_fmt(devp.get('target_m'), '{:,.0f}')} m drilled"
-                  if devp else ""),
-        _kpi("Recoverable reserves",
+        _kpi("Wells drilled (total)",
+             str(wells_latest.get("total", "—")),
+             f"FY{well_fys[-1]}" if well_fys else "",
+             f"vs {wells_first.get('total', '—')} in FY{well_fys[0]}" if well_fys else "",
+             note=f"{wells_latest.get('expl', 0)} exploratory · "
+                  f"{wells_latest.get('dev', 0)} development"),
+        _kpi("Exploratory meterage achievement",
+             _pct(nominated.get("pct")),
+             "nominated blocks",
+             f"{nominated.get('actual_wells', '—')} of {nominated.get('target_wells', '—')} wells",
+             amber=(nominated.get("pct") is not None and nominated["pct"] < 0.9),
+             note="NELP / OALP onshore commitment blocks lag at 0%"),
+        _kpi("Workover operations",
+             str(wo_fy25 or "—"),
+             f"FY{wo_fys[-2]}" if len(wo_fys) >= 2 else "",
+             f"{wo_fy26} planned FY{wo_fys[-1]}" if wo_fy26 else ""),
+        _kpi("Reserve accretion",
              _fmt(rec_l.get("rec_mmtoe") if rec_l else None),
              "MMToE",
-             f"FY{rec_l['fy']} year-end" if rec_l else "—",
-             amber=bool(rec_amber)),
-        _kpi("2P oil reserves",
-             _fmt((_latest_with(rows, "oil_2p_mmt")[0] or {}).get("oil_2p_mmt")),
-             "MMT",
-             f"FY{(_latest_with(rows, 'oil_2p_mmt')[0] or {}).get('fy', '')} year-end"
-             if _latest_with(rows, "oil_2p_mmt")[0] else "—",
-             note="reserves are disclosed annually after year-end"),
+             f"FY{rec_l['fy']} · best since FY22-23" if rec_l else "",
+             note="reserves runway feeds the RRR target (see Production)"),
     ]
 
     # Bigger breakdowns array — FY25-26 progress + seismic + historical wells
@@ -507,35 +904,163 @@ def exploration_metrics() -> dict:
             "items": wells_5yr,
         })
 
+    # Accretion vs production-depletion trend (last 6 FYs).
+    acc_fys = [r["fy"] for r in rows[-6:]]
     trend = {
-        "label": "2P oil reserves trend (last available disclosures)",
-        "unit": "MMT",
-        "labels": [r["fy"] for r in rows[-8:]],
+        "label": "Reserve accretion vs crude production (MMToE-equiv)",
+        "unit": "MMToE",
+        "labels": acc_fys,
         "series": [
-            {"name": "2P oil (MMT)", "values": [r["oil_2p_mmt"] for r in rows[-8:]]},
+            {"name": "Accretion (MMToE)",
+             "values": [r.get("rec_mmtoe") for r in rows[-6:]]},
+            {"name": "Crude production (MMT)",
+             "values": [r.get("crude_mmt") for r in rows[-6:]]},
         ],
     }
 
-    highlights = []
-    if expl_ach is not None and expl_ach < 0.9:
-        highlights.append(
-            f"Exploratory drilling tracking at {int(round(expl_ach * 100))}% "
-            f"of FY25-26 plan — {expl.get('target_w', 0) - expl.get('actual_w', 0)} "
-            f"wells short."
-        )
-    if devp_ach is not None and devp_ach < 0.9:
-        highlights.append(
-            f"Development drilling at {int(round(devp_ach * 100))}% of plan — "
-            f"{devp.get('target_w', 0) - devp.get('actual_w', 0)} wells behind."
-        )
-    if expl.get("actual_m") and expl.get("target_m") and expl["actual_m"] > expl["target_m"]:
-        highlights.append(
-            f"Exploratory meterage ahead of plan — {expl['actual_m']:,.0f} m "
-            f"drilled vs {expl['target_m']:,.0f} m budgeted."
-        )
+    # ============ 3 PREDICTIVE INSIGHTS ============
+    insights: list[dict] = []
+
+    # Insight 1 — drilling intensity → production (lagged intervention ROI).
+    crude_by_fy = {r["fy"]: r.get("crude_mmt") for r in rows}
+    int_fys = [fy for fy in wo_fys if crude_by_fy.get(fy) is not None]
+    crude_seq = [crude_by_fy[fy] for fy in int_fys]
+    wo_seq = [wo["total"].get(fy) for fy in int_fys]
+    dev_seq = [wells_by_fy.get(fy, {}).get("dev") for fy in int_fys]
+    lag_model = P.lagged_intervention_model(crude_seq, wo_seq, dev_seq) \
+        if len(int_fys) >= 5 else None
+    wells_growth = None
+    if wells_first.get("total") and wells_latest.get("total"):
+        wells_growth = round((wells_latest["total"] / wells_first["total"] - 1) * 100)
+    pred_e1 = {}
+    if lag_model:
+        pred_e1 = {
+            "label": "Lagged intervention-ROI regression",
+            "method": f"OLS crude(t) ~ workovers(t) + dev-wells(t−1) "
+                      f"(R²={lag_model['r2']}, adj R²={lag_model['adj_r2']}, "
+                      f"n={lag_model['n_obs']}{'; small sample' if lag_model['small_sample'] else ''})",
+            "output": (
+                f"Each workover is worth ~{lag_model['coef_workover_t']*1000:.2f} kT crude, "
+                f"each prior-year dev well ~{lag_model['coef_devwell_t_1']*1000:.2f} kT. "
+                f"Inverting: holding {lag_model['hold_target_mmt']} MMT in FY27 needs "
+                f"~{lag_model['required_workovers_fy27']} workovers."
+            ),
+            "metrics": lag_model,
+        }
+    insights.append(_insight(
+        "expl-i1",
+        "Drilling intensity up sharply — the model quantifies what it buys",
+        f"Wells drilled {wells_first.get('total', '—')} → {wells_latest.get('total', '—')} "
+        f"(FY{well_fys[0] if well_fys else ''}→FY{well_fys[-1] if well_fys else ''}, "
+        f"+{wells_growth}%), workovers {wo['total'].get(wo_fys[0]) if wo_fys else '—'} → "
+        f"{wo_fy25}, coincident with the crude recovery.",
+        l1_title="Wells + workovers vs crude production",
+        l1="Dual-axis: drilling + workover counts rise in step with crude from FY21. "
+           "The intervention engine is what arrested the legacy decline.",
+        l2_title="Exploratory vs development mix",
+        l2=f"Development wells {wells_first.get('dev', '—')} → {wells_latest.get('dev', '—')}; "
+           f"OGPS workovers dominate ({wo['ogps'].get(wo_fys[-2]) if len(wo_fys)>=2 else '—'} "
+           f"FY25) with Rajasthan the balance.",
+        predictive=pred_e1,
+    ))
+
+    # Insight 2 — offshore inflection (execution matrix + Bayesian Andaman).
+    nelp_oalp = [r for r in regimes if r["regime"].startswith(("NELP", "OALP"))
+                 and "Andaman" not in (r.get("state") or "")]
+    onshore_lag = [r for r in nelp_oalp if (r.get("pct") or 0) < 0.5 and r.get("target_wells")]
+    andaman_reg = next((r for r in regimes if "Andaman" in (r.get("state") or "")), {})
+    from .andaman import get_andaman
+    af = get_andaman()
+    bayes = P.bayesian_success_update(af.get("wells_gas_bearing", 2),
+                                      af.get("wells_drilled", 3))
+    pred_e2 = {}
+    if bayes:
+        pred_e2 = {
+            "label": "Bayesian success-rate update (Beta-Binomial)",
+            "method": "Prior Beta(1,4) ≈ 1-in-5 frontier base rate; posterior after "
+                      f"{bayes['observed']} gas-bearing wells",
+            "output": (
+                f"Basin success probability moves from {bayes['prior_mean']} to "
+                f"{bayes['posterior_mean']} (90% CI {bayes['cred_interval_90'][0]}–"
+                f"{bayes['cred_interval_90'][1]}). The execution gap is now onshore-OALP "
+                f"({len(onshore_lag)} commitment blocks under 50% of meterage), not offshore."
+            ),
+            "metrics": bayes,
+        }
+    insights.append(_insight(
+        "expl-i2",
+        "From 'offshore is the risk' to 'offshore is the inflection point'",
+        "All legacy drilling sits in nominated onshore acreage (139% of meterage) while "
+        "NELP/OALP commitment blocks sit at 0%. The Andaman result flips the story: a "
+        "single offshore campaign delivered a 2-of-3 gas-bearing rate in a frontier basin "
+        "where ~1-in-5 is typical.",
+        l1_title="Execution & success matrix by regime",
+        l1="Nominated-onshore over-delivers; NELP/OALP-onshore commitment blocks are the "
+           "real execution gap; Andaman-offshore (OALP-II) drilled "
+           f"{andaman_reg.get('actual_wells', '—')} well at "
+           f"{_pct(andaman_reg.get('pct'))} of meterage.",
+        l2_title="Block-level + Andaman well log",
+        l2="Vijayapuram-1 dry → V-2 gas (295 m, 87% methane) → V-3 gas (355 m, flaring on "
+           "test). Commitment-risk scoring flags the onshore OALP minimum-work-programme "
+           "deadlines as the exposure to watch.",
+        predictive=pred_e2,
+    ))
+
+    # Insight 3 — accretion recovering but not enough (effectiveness).
+    acc_seq = [r.get("rec_mmtoe") for r in rows if r.get("rec_mmtoe") is not None][-6:]
+    # exploration effectiveness: accretion per exploratory metre (use FY26 nominated meterage)
+    rrr_rows = [r for r in rows if r.get("rrr") is not None]
+    prodeq_latest = None
+    if rrr_rows and rrr_rows[-1].get("rrr") and rrr_rows[-1].get("rec_mmtoe"):
+        prodeq_latest = rrr_rows[-1]["rec_mmtoe"] / rrr_rows[-1]["rrr"]
+    eff = P.exploration_effectiveness(
+        acc_seq,
+        [nominated.get("actual_m") for _ in acc_seq],  # latest meterage proxy
+        production_equiv=prodeq_latest,
+    ) if acc_seq else None
+    pred_e3 = {}
+    if eff:
+        pred_e3 = {
+            "label": "Exploration-effectiveness → RRR≥1 requirement",
+            "method": "Accretion per exploratory metre, trended; inverted for RRR≥1.0 next FY",
+            "output": (
+                f"To reach RRR ≥ 1.0, accretion must reach "
+                f"~{eff['required_accretion_for_rrr']} MMToE — implying on the order of "
+                f"{eff['implied_meterage']:,} m of effective exploratory drilling at "
+                f"current effectiveness." if eff.get("implied_meterage")
+                else f"RRR≥1.0 needs accretion ~{eff['required_accretion_for_rrr']} MMToE."
+            ),
+            "metrics": eff,
+        }
+    insights.append(_insight(
+        "expl-i3",
+        "Reserve accretion recovering — but the model says not yet enough",
+        f"Accretion reached {rec_l.get('rec_mmtoe') if rec_l else '—'} MMToE in FY26 "
+        f"(best in five years), yet RRR is still below 1.0 because production grew faster.",
+        l1_title="Accretion vs production-depletion",
+        l1="The gap between annual accretion and production-equivalent depletion is the "
+           "net reserve change — still negative on the oil side.",
+        l2_title="Discovery log mapped to accretion",
+        l2="8 discoveries in 5 years (3 gas / 5 oil); FY25 added the deepest commercial "
+           "oil find (Mechaki-6, >5500 m). Andaman events are flagged booked=false — they "
+           "contribute zero accretion until appraised.",
+        predictive=pred_e3,
+    ))
+
+    highlights = [
+        f"FY26 nominated exploratory meterage at {_pct(nominated.get('pct'))} of BE — "
+        f"{nominated.get('actual_wells', '—')} wells vs {nominated.get('target_wells', '—')} "
+        f"target, while NELP/OALP commitment blocks sit at 0%.",
+        f"Reserve accretion {rec_l.get('rec_mmtoe') if rec_l else '—'} MMToE (FY26), best "
+        f"in five years — but still short of replacing production (RRR < 1.0).",
+        "Andaman offshore turned a 2-of-3 gas-bearing result — frontier success well above "
+        "the ~1-in-5 norm. Unbooked; see the scenario module.",
+    ]
 
     return {"kpis": kpis, "breakdowns": breakdowns, "trend": trend,
-            "highlights": highlights}
+            "highlights": highlights, "insights": insights,
+            "scenario": _andaman_scenario(),
+            "milestones": _milestones("EXPLORATION")}
 
 
 def _drilling_wells() -> list[dict]:
