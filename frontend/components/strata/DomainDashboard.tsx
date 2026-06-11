@@ -49,6 +49,51 @@ interface Trend {
   series: TrendSeries[];
 }
 
+interface Predictive {
+  label?: string;
+  method?: string;
+  output?: string;
+  metrics?: Record<string, unknown>;
+}
+
+interface Insight {
+  id: string;
+  title: string;
+  summary: string;
+  drilldown?: { l1_title?: string; l1?: string; l2_title?: string; l2?: string };
+  predictive?: Predictive;
+  links?: string[];
+}
+
+interface Milestone {
+  title: string;
+  body: string;
+  source: string;
+  tags: string[];
+  status?: string;
+}
+
+interface ScenarioLens {
+  lens: string;
+  output: string;
+  table?: { pool_bcm: number; uplift_2p_gas_pct?: number; added_reserve_life_yrs?: number }[] | null;
+  hypothetical?: boolean;
+}
+
+interface ScenarioTimeline { stage: string; when: string; done: boolean; }
+
+interface Scenario {
+  label: string;
+  subtitle?: string;
+  guardrail: string;
+  facts?: Record<string, unknown>;
+  lenses: ScenarioLens[];
+  timeline?: ScenarioTimeline[];
+  scrape_status?: string;
+  live_sources?: string[];
+  system_of_record?: string;
+}
+
 interface Payload {
   key: string;
   title: string;
@@ -57,6 +102,9 @@ interface Payload {
   breakdowns: Breakdown[];
   trend: Trend | null;
   highlights: string[];
+  insights?: Insight[];
+  milestones?: Milestone[];
+  scenario?: Scenario | null;
   as_of?: string;
 }
 
@@ -133,7 +181,70 @@ export function DomainDashboard({ domain, onOpenSource }: Props) {
         />
       )}
 
-      {data.highlights && data.highlights.length > 0 && (
+      {data.milestones && data.milestones.length > 0 && (
+        <section className="domain-block">
+          <h2 className="serif domain-section-title">Live milestones</h2>
+          <div className="milestone-strip">
+            {data.milestones.map((m, i) => (
+              <div
+                key={i}
+                className={'milestone-card' + (m.status === 'unbooked' ? ' is-unbooked' : '')}
+              >
+                <div className="milestone-tags">
+                  {m.tags.map(t => <span key={t} className="milestone-tag">{t}</span>)}
+                  {m.status === 'unbooked' && (
+                    <span className="milestone-status">unbooked</span>
+                  )}
+                </div>
+                <div className="milestone-title">{m.title}</div>
+                <div className="milestone-body">{m.body}</div>
+                <div className="milestone-source">{m.source}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {data.insights && data.insights.length > 0 && (
+        <section className="domain-block">
+          <h2 className="serif domain-section-title">Analysis</h2>
+          <p className="domain-section-sub">
+            Deep-dive insights — each backed by a model computed on OIL&rsquo;s own data.
+          </p>
+          <div className="insight-grid">
+            {data.insights.map(ins => (
+              <button
+                key={ins.id}
+                type="button"
+                className="insight-card is-clickable"
+                onClick={() => setDrill(buildInsightDrill(data, ins))}
+              >
+                {ins.predictive?.output && (
+                  <span className="insight-badge">Predictive</span>
+                )}
+                <h3 className="insight-title serif">{ins.title}</h3>
+                <p className="insight-summary">{ins.summary}</p>
+                {ins.predictive?.output && (
+                  <p className="insight-predictive">
+                    <span className="insight-predictive-label">
+                      {ins.predictive.label ?? 'Model'}
+                    </span>
+                    {ins.predictive.output}
+                  </p>
+                )}
+                <span className="insight-more">Open analysis →</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {data.scenario && (
+        <ScenarioModule scenario={data.scenario} />
+      )}
+
+      {(!data.insights || data.insights.length === 0) &&
+        data.highlights && data.highlights.length > 0 && (
         <section className="domain-highlights">
           {data.highlights.map((h, i) => (
             <p key={i} className="domain-highlight">
@@ -221,6 +332,105 @@ function buildKpiDrill(payload: Payload, kpi: Kpi): DrilldownData {
     sources: [],
     agent: undefined,
   };
+}
+
+/** Build a Drilldown payload for an insight card — packs L1, L2 and the
+ *  computed predictive block as sections. */
+function buildInsightDrill(payload: Payload, ins: Insight): DrilldownData {
+  const sections = [];
+  const dd = ins.drilldown ?? {};
+  if (dd.l1) {
+    sections.push({ eyebrow: 'Drill-down · L1', title: dd.l1_title, body: dd.l1 });
+  }
+  if (dd.l2) {
+    sections.push({ eyebrow: 'Drill-down · L2', title: dd.l2_title, body: dd.l2 });
+  }
+  const p = ins.predictive;
+  if (p?.output) {
+    const body = [
+      p.method ? `_${p.method}_` : '',
+      '',
+      p.output,
+    ].filter(Boolean).join('\n');
+    sections.push({
+      eyebrow: 'Predictive · computed model',
+      title: p.label ?? 'Model output',
+      body,
+    });
+  }
+  return {
+    tag: payload.title,
+    eyebrow: 'Insight',
+    title: ins.title,
+    lead: ins.summary,
+    sections,
+    sources: [],
+    agent: undefined,
+  };
+}
+
+function ScenarioModule({ scenario }: { scenario: Scenario }) {
+  return (
+    <section className="scenario-module">
+      <div className="scenario-head">
+        <span className="scenario-eyebrow">Possible upside · scenario</span>
+        <h2 className="serif scenario-title">{scenario.label}</h2>
+        {scenario.subtitle && <p className="scenario-subtitle">{scenario.subtitle}</p>}
+      </div>
+
+      <div className="scenario-guardrail">{scenario.guardrail}</div>
+
+      <div className="scenario-lenses">
+        {scenario.lenses.map((l, i) => (
+          <div className="scenario-lens" key={i}>
+            <div className="scenario-lens-head">
+              <span className="scenario-lens-name">{l.lens}</span>
+              {l.hypothetical && <span className="scenario-hyp">illustrative</span>}
+            </div>
+            <p className="scenario-lens-output">{l.output}</p>
+            {l.table && l.table.length > 0 && (
+              <table className="scenario-table">
+                <thead>
+                  <tr><th>Pool</th><th>2P gas uplift</th><th>+ reserve life</th></tr>
+                </thead>
+                <tbody>
+                  {l.table.map((row, j) => (
+                    <tr key={j}>
+                      <td>{row.pool_bcm} BCM</td>
+                      <td>+{row.uplift_2p_gas_pct}%</td>
+                      <td>+{row.added_reserve_life_yrs} yrs</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {scenario.timeline && scenario.timeline.length > 0 && (
+        <div className="scenario-timeline">
+          {scenario.timeline.map((t, i) => (
+            <div className={'scenario-step' + (t.done ? ' is-done' : '')} key={i}>
+              <span className="scenario-step-dot" />
+              <span className="scenario-step-stage">{t.stage}</span>
+              <span className="scenario-step-when">{t.when}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {scenario.scrape_status && (
+        <div className="scenario-foot">
+          <span className="scenario-foot-label">Source</span>
+          {scenario.system_of_record} · {scenario.scrape_status}
+          {scenario.live_sources && scenario.live_sources.length > 0 && (
+            <span> · {scenario.live_sources.length} live link(s)</span>
+          )}
+        </div>
+      )}
+    </section>
+  );
 }
 
 function BreakdownBlock({ block }: { block: Breakdown }) {
