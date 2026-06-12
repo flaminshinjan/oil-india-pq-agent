@@ -46,9 +46,11 @@ ANDAMAN_FACTS = {
         {
             "well": "Vijayapuram-1",
             "date": "2024",
-            "result": "dry",
+            "result": "dry — write-off ≈ ₹720 crore",
             "gas_bearing": False,
-            "note": "First well in the basin — non-commercial.",
+            "writeoff_inr_cr": 720,
+            "note": "First well in the basin — not a gas success; associated "
+                    "exploratory write-off ≈ ₹720 cr reported against the Q2 FY26 result.",
         },
         {
             "well": "Vijayapuram-2",

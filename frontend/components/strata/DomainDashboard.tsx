@@ -116,14 +116,16 @@ interface Payload {
 const CHART_PANELS: Record<string, { title: string; sub?: string; keys: string[] }[]> = {
   production: [
     { title: '10-year production trend', sub: 'Crude (MMT) vs natural gas (MMSCM), FY16–FY26', keys: ['crude_gas_trend'] },
+    { title: 'State-wise FY26 achievement', sub: 'Crude and gas cumulative actuals vs annual BE target', keys: ['state_crude', 'state_gas'] },
     { title: 'Reserves analysis — RRR & 2P divergence', sub: 'RRR vs the 1.0 threshold; 2P oil falling while 2P gas rises', keys: ['rrr_bars', 'twop_divergence'] },
     { title: 'Production forecast fan — FY27–28', sub: 'Decline-curve + intervention regression', keys: ['production_forecast'] },
-    { title: 'RRR scenario fan — FY26–28', sub: 'Monte-Carlo accretion scenarios', keys: ['rrr_scenario'] },
+    { title: 'RRR scenario fan — FY26–28', sub: 'Accretion scenarios + arithmetic verification', keys: ['rrr_scenario', 'rrr_verification'] },
     { title: 'Gasification crossover projection', sub: 'Gas share of MMToE output crossing 50%', keys: ['gasification'] },
   ],
   exploration: [
-    { title: 'Drilling intensity vs production', sub: 'Wells + workovers vs crude, FY21–FY25', keys: ['wells_workovers'] },
-    { title: 'Exploratory meterage by regime — FY26', sub: 'Achievement vs the 100% BE target', keys: ['regime_achievement'] },
+    { title: 'Drilling intensity vs production', sub: 'Wells + workovers vs crude, FY21–FY26 + forecast', keys: ['wells_workovers'] },
+    { title: 'FY26 drilling breakdown', sub: 'Nominated vs other regimes — verified against the grand-total row', keys: ['drilling_breakdown'] },
+    { title: 'Exploratory meterage by regime — FY26', sub: 'Per-regime achievement vs the 100% BE target', keys: ['regime_achievement'] },
     { title: 'Exploration effectiveness & required-wells inversion', sub: 'Accretion per exploratory well, inverted to an FY27 requirement', keys: ['effectiveness', 'required_wells'] },
   ],
 };

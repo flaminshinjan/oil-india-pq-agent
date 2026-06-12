@@ -4279,3 +4279,23 @@
 }
 .scenario-source-link:hover { color: var(--accent-2); }
 .scenario-source-date { font-size: 10px; color: var(--ink-4); flex: none; }
+
+/* data tables inside chart panels (drilling breakdown, RRR verification) */
+.chart-table-wrap {
+  border: 0.5px solid var(--line); border-radius: 11px;
+  background: var(--surface); padding: 14px 16px;
+}
+.chart-table-title { font-size: 12px; font-weight: var(--w-med); color: var(--ink-2); margin-bottom: 8px; }
+.chart-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.chart-table thead th {
+  background: #1f3a5f; color: #fff; font-weight: var(--w-med);
+  font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 8px 10px;
+}
+.chart-table thead th:first-child { border-top-left-radius: 6px; }
+.chart-table thead th:last-child { border-top-right-radius: 6px; }
+.chart-table th.tl, .chart-table td.tl { text-align: left; }
+.chart-table th.tr, .chart-table td.tr { text-align: right; }
+.chart-table td { padding: 8px 10px; color: var(--ink-2); border-bottom: 0.5px solid var(--line); }
+.chart-table td.num { font-feature-settings: "tnum" 1; }
+.chart-table tbody tr:nth-child(even) { background: var(--surface-2); }

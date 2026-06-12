@@ -58,8 +58,38 @@ export function Chart({ chart }: { chart: ChartSpec }) {
     case 'line':            return <SimpleLine c={chart} />;
     case 'bar':             return <SimpleBar c={chart} />;
     case 'prob_track':      return <ProbTrack c={chart} />;
+    case 'table':           return <DataTable c={chart} />;
     default:                return null;
   }
+}
+
+/* ============================================================
+   table — source-verified data table (drilling breakdown, RRR verify)
+   ============================================================ */
+function DataTable({ c }: { c: ChartSpec }) {
+  return (
+    <div className="chart-table-wrap">
+      {c.title && <div className="chart-table-title">{c.title}</div>}
+      <table className="chart-table">
+        <thead>
+          <tr>{c.columns.map((h: string, i: number) =>
+            <th key={i} className={i === 0 ? 'tl' : 'tr'}>{h}</th>)}</tr>
+        </thead>
+        <tbody>
+          {c.rows.map((row: any[], ri: number) => (
+            <tr key={ri}>
+              {row.map((cell, ci) => (
+                <td key={ci} className={ci === 0 ? 'tl' : 'tr num'}>
+                  {cell == null ? '—' : cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {c.note && <p className="chart-note">{c.note}</p>}
+    </div>
+  );
 }
 
 /* ---- frame primitives ---- */
@@ -316,9 +346,14 @@ function GroupedBarLine({ c }: { c: ChartSpec }) {
   const group = (IW / n) * 0.62;
   const bw = group / nb;
   const colors = [C.purple, C.teal];
+  const fc = c.forecast_from != null ? c.forecast_from : n;
+  const fx = fc < n ? xAt(fc - 0.5, n) : null;
   return (
     <div className="chart-wrap">
       <svg viewBox={`0 0 ${W} ${H}`} className="chart-svg" role="img" aria-label={c.line.name}>
+        {fx != null && <rect x={fx} y={P.t} width={W - P.r - fx} height={IH} fill={C.amber} opacity="0.06" />}
+        {fx != null && <text x={W - P.r - 4} y={P.t + 11} textAnchor="end" fontSize="8.5"
+              fill={C.amberHi} fontWeight="600" letterSpacing="0.08em">FORECAST</text>}
         <Grid />
         <XLabels labels={c.labels} />
         <YLabels lo={blo} hi={bhi} side="left" />
@@ -328,17 +363,24 @@ function GroupedBarLine({ c }: { c: ChartSpec }) {
             <rect key={`${bi}-${i}`}
                   x={xAt(i, n) - group / 2 + bi * bw} y={yb(v)}
                   width={bw - 2} height={Math.max(0, yb(blo) - yb(v))}
-                  rx="1.5" fill={colors[bi % colors.length]} opacity="0.88" />
+                  rx="1.5" fill={colors[bi % colors.length]}
+                  opacity={i >= fc ? 0.32 : 0.88} />
           )))}
-        <polyline points={polyline(c.line.values, llo, lhi, n)} fill="none"
-                  stroke={C.red} strokeWidth="2.2" strokeLinejoin="round" />
+        {/* line: solid over actuals, dashed over forecast */}
+        <polyline points={polyline(c.line.values.map((v: number | null, i: number) => i < fc ? v : null), llo, lhi, n)}
+                  fill="none" stroke={C.red} strokeWidth="2.2" strokeLinejoin="round" />
+        {fc < n && (
+          <polyline points={polyline(c.line.values.map((v: number | null, i: number) => i >= fc - 1 ? v : null), llo, lhi, n)}
+                    fill="none" stroke={C.red} strokeWidth="2.2" strokeDasharray="5 3" strokeLinejoin="round" />
+        )}
         {c.line.values.map((v: number | null, i: number) => v == null ? null :
-          <circle key={i} cx={xAt(i, n)} cy={yl(v)} r="3" fill={C.red} />)}
+          <circle key={i} cx={xAt(i, n)} cy={yl(v)} r="3" fill={C.red} opacity={i >= fc ? 0.5 : 1} />)}
       </svg>
       <Legend items={[
         ...c.bars.map((b: any, i: number) => ({ name: b.name, color: colors[i % colors.length] })),
         { name: c.line.name, color: C.red },
       ]} />
+      {c.model_note && <p className="chart-note">{c.model_note}</p>}
     </div>
   );
 }
@@ -419,7 +461,8 @@ function SimpleLine({ c }: { c: ChartSpec }) {
 function SimpleBar({ c }: { c: ChartSpec }) {
   const n = c.items.length;
   const vals = c.items.map((i: any) => i.value ?? 0);
-  const [lo, hi] = [0, Math.max(...vals) * 1.18];
+  const hiCap = Math.max(...vals, c.threshold ?? 0) * 1.18;
+  const [lo, hi] = [0, hiCap];
   const y = yScale(lo, hi);
   const bw = Math.min(70, (IW / n) * 0.5);
   const colorOf = (k: string) => k === 'amber' ? C.amber : k === 'red' ? C.red : C.teal;
@@ -429,6 +472,14 @@ function SimpleBar({ c }: { c: ChartSpec }) {
       <svg viewBox={`0 0 ${W} ${H}`} className="chart-svg" role="img" aria-label={c.y_label}>
         <Grid />
         <YLabels lo={lo} hi={hi} side="left" />
+        {c.threshold != null && (
+          <>
+            <line x1={P.l} x2={W - P.r} y1={y(c.threshold)} y2={y(c.threshold)}
+                  stroke={C.axis} strokeWidth="1" strokeDasharray="3 3" />
+            <text x={W - P.r} y={y(c.threshold) - 4} textAnchor="end" fontSize="8.5"
+                  fill={C.axis}>{c.threshold === 100 ? '100% target' : c.threshold}</text>
+          </>
+        )}
         {c.items.map((it: any, i: number) => {
           const v = it.value ?? 0;
           return (
