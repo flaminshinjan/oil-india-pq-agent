@@ -49,14 +49,6 @@ def _live_state_block() -> str:
 
 
 def scan() -> list[signals.Signal]:
-    return llm_scan(
-        agent=AGENT,
-        role=SYSTEM_PROMPT_TAIL,
-        queries=[
-            "OIL MSE micro small enterprise procurement share BRSR",
-            "OIL GeM portal procurement value annual report",
-            "OIL vendor development MSME purchase preference policy",
-            "OIL local supplier Make-in-India procurement",
-        ],
-        extra_context=_live_state_block(),
-    )
+    # Procurement has been removed from the product surface (no dashboard
+    # tab); suppress its proactive ticker signals too.
+    return []

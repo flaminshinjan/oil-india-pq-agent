@@ -1,6 +1,6 @@
 'use client';
 /**
- * Strata · intelligence OS — landing page.
+ * Digby · intelligence OS — landing page.
  *
  * Editorial in tone, rich in visuals. Same design tokens as the dashboard
  * so the product feels like one thing.
@@ -55,12 +55,6 @@ const CAPABILITIES = [
     title: 'Headcount, attrition, time-to-fill',
     body: 'Per-function TTM attrition vs 5-yr baseline, open requisitions, median weeks-to-fill — flags drift before it shows up in board packs.',
     icon: '✦',
-  },
-  {
-    eyebrow: 'Procurement',
-    title: 'Bids ranked on the criteria that matter',
-    body: 'Price, delivery, OEM rating, warranty, deviations — all weighed against the criteria you set on the PR.',
-    icon: '◇',
   },
   {
     eyebrow: 'Parliamentary Replies',
@@ -119,7 +113,7 @@ export default function Landing() {
               <BrandGlyph />
             </span>
             <span className="lh-brand-text">
-              <span className="lh-brand-name">STRATA</span>
+              <span className="lh-brand-name">DIGBY</span>
               <span className="lh-brand-sub">intelligence OS · Oil India</span>
             </span>
           </Link>
@@ -148,7 +142,7 @@ export default function Landing() {
             <span className="lh-h1-accent"> ships, drills, and discloses.</span>
           </h1>
           <p className="lh-lead">
-            Strata reads the annual report, the BRSR, the ESG data book, the
+            Digby reads the annual report, the BRSR, the ESG data book, the
             10-year sheet, the parliamentary replies and the live HSE feed —
             and answers whatever is on top of leadership’s mind. In writing
             or out loud, in under a second.
@@ -226,13 +220,6 @@ export default function Landing() {
                   title="Reserve depletion accelerating"
                   body="RRR has slipped to 0.94 from 1.16 five years ago — production now outpaces accretion."
                   step="Review the 9 deferred development wells."
-                  amber
-                />
-                <PreviewCard
-                  tag="Procurement"
-                  title="Weatherford bid contains high-severity deviation"
-                  body="Liability cap proposed at 50% of contract value vs OIL’s standard 100%."
-                  step="Recommend legal review before award."
                   amber
                 />
                 <PreviewCard
@@ -318,7 +305,7 @@ export default function Landing() {
         <div className="lh-foot-in">
           <div className="lh-foot-brand">
             <span className="lh-brand-mark" aria-hidden><BrandGlyph /></span>
-            STRATA
+            DIGBY
           </div>
           <div className="lh-foot-meta">
             Advisory only · never acts without you. Built for Oil India Limited.

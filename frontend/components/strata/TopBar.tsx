@@ -97,10 +97,10 @@ export function TopBar({
         {/* Brand — left */}
         <div className="topbar-brand">
           <div className="brand-mark-v2" aria-hidden>
-            <BrandGlyph />
+            <img src="/oil-logo.png" alt="Oil India" className="brand-logo-img" />
           </div>
           <div className="brand-text-v2">
-            <div className="brand-name-v2">STRATA</div>
+            <div className="brand-name-v2">DIGBY</div>
             <div className="brand-sub-v2">intelligence OS · Oil India</div>
           </div>
         </div>
@@ -145,7 +145,7 @@ export function TopBar({
               className="icon-btn icon-btn-chat"
               onClick={onOpenChat}
               aria-label="Open chat"
-              title="Open Ask Strata"
+              title="Open Ask Digby"
             >
               <Icon name="spark" size={16} />
             </button>
@@ -176,13 +176,3 @@ export function TopBar({
   );
 }
 
-function BrandGlyph() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
-      <rect width="20" height="20" rx="5" fill="var(--accent)"/>
-      <rect x="4" y="5"  width="12" height="2.2" rx="1.1" fill="var(--surface)"/>
-      <rect x="4" y="9"  width="12" height="2.2" rx="1.1" fill="var(--surface)" opacity="0.7"/>
-      <rect x="4" y="13" width="12" height="2.2" rx="1.1" fill="var(--surface)" opacity="0.45"/>
-    </svg>
-  );
-}

@@ -18,7 +18,7 @@ const sans = Hanken_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: 'Strata · intelligence OS — Oil India',
+  title: 'Digby · intelligence OS — Oil India',
   description: 'Advisory intelligence layer for Oil India Limited',
 };
 

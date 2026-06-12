@@ -5,7 +5,7 @@
  * Wiring:
  *   - /api/os/brief    → headline + per-agent signals (cards)
  *   - /api/os/metrics  → 4-up Key Metrics strip (live from the spreadsheets)
- *   - /api/chat        → the embedded "Ask Strata" chat dock streams here
+ *   - /api/chat        → the embedded "Ask Digby" chat dock streams here
  *
  * The page itself is a thin orchestration layer; every visual piece is its
  * own component under components/strata/.

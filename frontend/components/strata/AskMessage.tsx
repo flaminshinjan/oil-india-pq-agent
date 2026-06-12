@@ -1,6 +1,6 @@
 'use client';
 /**
- * Renders a single "Ask Strata" message inside the dock's chat-sheet.
+ * Renders a single "Ask Digby" message inside the dock's chat-sheet.
  * - user → light bubble on the right (Strata's accent-tinted style)
  * - ai   → spark glyph + markdown body + tool chips + citation pills
  *

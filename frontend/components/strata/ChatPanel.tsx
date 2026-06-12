@@ -1,6 +1,6 @@
 'use client';
 /**
- * ChatPanel — the persistent "Ask Strata" chat that lives in the left
+ * ChatPanel — the persistent "Ask Digby" chat that lives in the left
  * column. The history view is a small popover anchored to the clock
  * button in the header (no longer takes over the whole chat area).
  */
@@ -42,7 +42,6 @@ const CHIPS_BY_DOMAIN: Record<string, string[]> = {
   exploration: ['How many wells are we behind plan?', 'What is the Andaman status?', 'Where is the latest discovery?'],
   hse:         ['Which site has most PPE flags?', 'How long since last LTI?', 'What is our LTIFR trend?'],
   hr:          ['Where is attrition highest?', 'Open requisitions by function?', 'How are we tracking on diversity?'],
-  procurement: ['What is OIL’s MSE procurement share?', 'How much went through GeM last year?', 'Any high-severity deviations in the demo PR?'],
   finance:     ['Show me the 5-year capex trend.', 'PBT FY25 vs FY24?', 'What’s the CSR spend trajectory?'],
 };
 
@@ -269,7 +268,7 @@ export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClo
           <span className="chat-glyph">
             <Icon name="spark" size={14} />
           </span>
-          Ask Strata
+          Ask Digby
         </span>
         <div className="chat-tools">
           {isExpanded && (
@@ -379,10 +378,11 @@ export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClo
           </div>
         ) : (
           <div className="chat-empty">
-            <h3 className="serif chat-empty-title">Ask anything.</h3>
+            <h3 className="serif chat-empty-title">Hi, I&rsquo;m Digby.</h3>
             <p className="chat-empty-sub">
-              I can speak to production, reserves, safety, procurement, and
-              workforce — grounded in OIL's own data, with sources cited.
+              Named after the town where Asia&rsquo;s oil story began. I speak to
+              production, reserves, safety, and workforce — grounded in OIL&rsquo;s
+              own data, with sources cited. How can I help you today?
             </p>
             <div className="chips">
               {(CHIPS_BY_DOMAIN[domain || 'brief'] || chips).map(c => (
