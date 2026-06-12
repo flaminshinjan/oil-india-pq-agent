@@ -64,6 +64,14 @@ const CAPABILITIES = [
   },
 ];
 
+const SOURCE_THUMBS = [
+  { label: '10-yr Production & Reserves', ext: 'XLSX', kind: 'xl' },
+  { label: 'FY2025-26 MIS', ext: 'XLSX', kind: 'xl' },
+  { label: 'Reserves & Discoveries', ext: 'DOCX', kind: 'doc' },
+  { label: 'Annual Reports · BRSR · ESG', ext: 'PDF', kind: 'pdf' },
+  { label: 'Parliamentary replies', ext: 'PQ', kind: 'pq' },
+];
+
 export default function Landing() {
   const [health, setHealth] = useState<Health | null>(null);
   const [voice, setVoice] = useState<VoiceStatus | null>(null);
@@ -133,29 +141,6 @@ export default function Landing() {
         <div className="lh-hero-bg" aria-hidden />
         <div className="lh-hero-veil" aria-hidden />
 
-        {/* 1889 Digboi stamp */}
-        <div className="lh-stamp" aria-hidden>
-          <svg viewBox="0 0 140 140" className="lh-stamp-svg">
-            <circle cx="70" cy="70" r="66" className="lh-stamp-ring" />
-            <circle cx="70" cy="70" r="57" className="lh-stamp-ring lh-stamp-ring-2" />
-            <defs>
-              <path id="stampTop" d="M 22,70 A 48,48 0 0 1 118,70" />
-              <path id="stampBot" d="M 26,70 A 44,44 0 0 0 114,70" />
-            </defs>
-            <text className="lh-stamp-arc">
-              <textPath href="#stampTop" startOffset="50%" textAnchor="middle">
-                DIGBOI, ASSAM
-              </textPath>
-            </text>
-            <text className="lh-stamp-arc">
-              <textPath href="#stampBot" startOffset="50%" textAnchor="middle">
-                ASIA’S OIL STORY BEGAN
-              </textPath>
-            </text>
-            <text x="70" y="84" textAnchor="middle" className="lh-stamp-year">1889</text>
-          </svg>
-        </div>
-
         <div className="lh-hero-in">
           <span className="lh-pill">
             <span className={`lh-dot ${ready ? 'is-ok' : 'is-warn'}`} />
@@ -205,16 +190,18 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* location pin */}
-        <div className="lh-pin" aria-hidden>
-          <span className="lh-pin-ico">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-              <path d="M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5Z" />
-            </svg>
-          </span>
-          <span className="lh-pin-text">
-            <b>Digboi</b><br />Where Asia’s oil journey began.
-          </span>
+        {/* source thumbnails — what Digby is grounded in */}
+        <div className="lh-sources">
+          <span className="lh-sources-eyebrow">Grounded in</span>
+          <div className="lh-sources-row">
+            {SOURCE_THUMBS.map(s => (
+              <div className="lh-thumb" key={s.label} title={s.label}>
+                <span className={`lh-thumb-strip lh-thumb-${s.kind}`} />
+                <span className="lh-thumb-ext">{s.ext}</span>
+                <span className="lh-thumb-label">{s.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 

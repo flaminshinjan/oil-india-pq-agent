@@ -4441,3 +4441,31 @@
   color: color-mix(in oklab, var(--hero-ink) 72%, transparent); }
 .lh-pin-text b { color: var(--hero-ink); }
 @media (max-width: 1000px) { .lh-pin { display: none; } }
+
+/* hero source thumbnails (DB / XL / PQs / PDFs) — bottom-left */
+.lh-sources { position: absolute; left: 48px; bottom: 40px; z-index: 3; }
+.lh-sources-eyebrow {
+  display: block; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: color-mix(in oklab, var(--hero-ink) 50%, transparent); font-weight: 500; margin-bottom: 9px;
+}
+.lh-sources-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.lh-thumb {
+  position: relative; width: 92px; height: 66px; flex: none;
+  background: rgba(255,255,255,0.9); backdrop-filter: blur(4px);
+  border: 0.5px solid rgba(0,0,0,0.1); border-radius: 9px;
+  padding: 10px 9px 8px; display: flex; flex-direction: column; justify-content: flex-end;
+  box-shadow: 0 6px 18px -12px rgba(0,0,0,0.4);
+  transition: transform 130ms ease, box-shadow 130ms ease;
+}
+.lh-thumb:hover { transform: translateY(-2px); box-shadow: 0 10px 22px -12px rgba(0,0,0,0.45); }
+.lh-thumb-strip { position: absolute; top: 0; left: 0; right: 0; height: 5px;
+  border-radius: 9px 9px 0 0; }
+.lh-thumb-xl  { background: #1f8a70; }
+.lh-thumb-pdf { background: #c0492f; }
+.lh-thumb-doc { background: #2f6db0; }
+.lh-thumb-pq  { background: #b3641b; }
+.lh-thumb-ext { font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+  color: var(--hero-ink); opacity: 0.55; }
+.lh-thumb-label { font-size: 9.5px; line-height: 1.25; color: var(--hero-ink);
+  font-weight: 500; }
+@media (max-width: 1100px) { .lh-sources { display: none; } }
