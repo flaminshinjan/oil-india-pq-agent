@@ -8,6 +8,9 @@ scan() doesn't publish proactive signals — PQ is purely query-driven.
 """
 from __future__ import annotations
 
+import re
+
+from ..config import settings
 from ..core.prompts import date_block
 from ..core import signals
 from . import tools as agent_tools
@@ -496,6 +499,7 @@ TOOLS = agent_tools.ALL_TOOLS
 
 
 _graph = None
+_fast_graph = None
 
 
 def get_graph():
@@ -503,6 +507,36 @@ def get_graph():
     if _graph is None:
         _graph = build_graph(system_prompt, TOOLS)
     return _graph
+
+
+def get_fast_graph():
+    """Same agent + tools, but on the faster model — used for PDF/report
+    requests, where the turn is dominated by streaming a large
+    `generate_report` payload (layout of already-retrieved facts) rather than
+    by reasoning. Falls back to the main graph if no distinct fast model."""
+    if settings.anthropic_fast_model == settings.anthropic_model:
+        return get_graph()
+    global _fast_graph
+    if _fast_graph is None:
+        _fast_graph = build_graph(system_prompt, TOOLS, model=settings.anthropic_fast_model)
+    return _fast_graph
+
+
+# A downloadable-report / PDF request: an action verb close to a document
+# noun, or a bare "pdf". Deliberately NOT triggered by "annual report" /
+# "what does the report say" (no action verb), so ordinary Q&A and in-chat
+# reply drafting stay on the guardrail-strong main model.
+_REPORT_INTENT = re.compile(
+    r"\bpdf\b"
+    r"|\b(?:generate|create|make|build|produce|prepare|draft|download|export|"
+    r"put together|give me|i\s+(?:need|want))\b[^.?!\n]{0,40}?"
+    r"\b(?:report|briefing|brief|deck|document|write[- ]?up)\b",
+    re.I,
+)
+
+
+def is_report_request(text: str) -> bool:
+    return bool(_REPORT_INTENT.search(text or ""))
 
 
 def scan() -> list[signals.Signal]:

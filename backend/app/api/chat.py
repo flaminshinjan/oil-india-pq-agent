@@ -13,7 +13,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
-from ..agents.pq import get_graph, system_prompt
+from ..agents.pq import get_fast_graph, get_graph, is_report_request, system_prompt
 from ..config import settings
 from ..schemas.wire import (
     ChatRequest,
@@ -43,7 +43,11 @@ def _wire(obj) -> bytes:
 
 
 async def _run_chat(req: ChatRequest) -> AsyncIterator[bytes]:
-    graph = get_graph()
+    # A PDF/report request is dominated by streaming a large generate_report
+    # payload, so run it on the faster model; everything else stays on the
+    # guardrail-strong main model.
+    last_user = next((m.content for m in reversed(req.messages) if m.role == "user"), "")
+    graph = get_fast_graph() if is_report_request(last_user) else get_graph()
     initial = {"messages": _to_lc_messages(req)}
     run_config = {"recursion_limit": 40}
 

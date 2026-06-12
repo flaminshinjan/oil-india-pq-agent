@@ -16,6 +16,9 @@ primary_region = "bom"
   # workload; the draft-reply-vs-PDF and source-tier guardrails hold more
   # reliably on it, at the cost of somewhat slower streaming.
   ANTHROPIC_MODEL = "claude-sonnet-4-6"
+  # PDF/report generation runs on this faster model (layout of retrieved
+  # facts + large streamed payload); chat/drafting stays on the model above.
+  ANTHROPIC_FAST_MODEL = "claude-haiku-4-5-20251001"
 
 [http_service]
   internal_port = 8080

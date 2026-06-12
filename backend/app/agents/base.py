@@ -21,27 +21,28 @@ class AgentState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
 
 
-def _llm() -> ChatAnthropic:
+def _llm(model: str | None = None) -> ChatAnthropic:
     if not settings.anthropic_api_key:
         raise RuntimeError(
             "ANTHROPIC_API_KEY is not set. Copy backend/.env.example to "
             "backend/.env and fill it in."
         )
     return ChatAnthropic(
-        model=settings.anthropic_model,
+        model=model or settings.anthropic_model,
         anthropic_api_key=settings.anthropic_api_key,
         temperature=0,
         max_tokens=16384,
     )
 
 
-def build_graph(system_prompt_fn: Callable[[], str], tools: list):
+def build_graph(system_prompt_fn: Callable[[], str], tools: list, *, model: str | None = None):
     """Compile a LangGraph for an agent with a given prompt builder + tools.
 
     `system_prompt_fn` is re-evaluated each turn so the date block stays
-    current — important for relative-date reasoning.
+    current — important for relative-date reasoning. `model` overrides the
+    default chat model (used for the faster report-generation graph).
     """
-    llm = _llm().bind_tools(tools)
+    llm = _llm(model).bind_tools(tools)
 
     def llm_node(state: AgentState):
         msgs = state["messages"]

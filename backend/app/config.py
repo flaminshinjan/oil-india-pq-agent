@@ -13,6 +13,10 @@ load_dotenv(_BACKEND_DIR / ".env")
 class Settings:
     anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
     anthropic_model: str = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929")
+    # Faster model used only for PDF/report generation, which is layout of
+    # already-retrieved facts and streams a large payload — Haiku is ~2-3x
+    # faster there. Chat/drafting stays on `anthropic_model` for guardrails.
+    anthropic_fast_model: str = os.getenv("ANTHROPIC_FAST_MODEL", "claude-haiku-4-5-20251001")
 
     # `data_root` is the SOURCE CORPUS — walked by the ingest CLI to feed
     # Chroma. Locally this is the full Parliamentary Replies tree. In prod
