@@ -176,6 +176,7 @@ function DualLine({ c }: { c: ChartSpec }) {
   const yr = yScale(rlo, rhi);
   return (
     <div className="chart-wrap">
+      {c.subtitle && <div className="chart-subtitle">{c.subtitle}</div>}
       <svg viewBox={`0 0 ${W} ${H}`} className="chart-svg" role="img" aria-label={c.left.name}>
         <Grid />
         <XLabels labels={c.labels} />
@@ -271,6 +272,7 @@ function Forecast({ c, mode }: { c: ChartSpec; mode: 'line' | 'bars' }) {
   const bw = Math.min(40, (IW / n) * 0.5);
   return (
     <div className="chart-wrap">
+      {c.subtitle && <div className="chart-subtitle">{c.subtitle}</div>}
       <svg viewBox={`0 0 ${W} ${H}`} className="chart-svg" role="img" aria-label={c.y_label}>
         {/* forecast band */}
         {fx != null && (
@@ -337,27 +339,29 @@ function Forecast({ c, mode }: { c: ChartSpec; mode: 'line' | 'bars' }) {
    ============================================================ */
 function GroupedBarLine({ c }: { c: ChartSpec }) {
   const n = c.labels.length;
+  const hasLine = !!c.line && Array.isArray(c.line.values);
   const barVals = c.bars.flatMap((b: any) => b.values).filter((v: any) => v != null);
-  const [blo, bhi] = [0, Math.max(...barVals) * 1.1];
-  const [llo, lhi] = bounds(c.line.values, 0.15);
+  const [blo, bhi] = [0, Math.max(...barVals, 1) * 1.12];
+  const [llo, lhi] = hasLine ? bounds(c.line.values, 0.15) : [0, 1];
   const yb = yScale(blo, bhi);
   const yl = yScale(llo, lhi);
   const nb = c.bars.length;
-  const group = (IW / n) * 0.62;
+  const group = (IW / n) * 0.66;
   const bw = group / nb;
-  const colors = [C.purple, C.teal];
+  const colors = [C.purple, C.teal, C.amber, C.blue];
   const fc = c.forecast_from != null ? c.forecast_from : n;
   const fx = fc < n ? xAt(fc - 0.5, n) : null;
   return (
     <div className="chart-wrap">
-      <svg viewBox={`0 0 ${W} ${H}`} className="chart-svg" role="img" aria-label={c.line.name}>
+      {c.subtitle && <div className="chart-subtitle">{c.subtitle}</div>}
+      <svg viewBox={`0 0 ${W} ${H}`} className="chart-svg" role="img" aria-label={c.subtitle || 'chart'}>
         {fx != null && <rect x={fx} y={P.t} width={W - P.r - fx} height={IH} fill={C.amber} opacity="0.06" />}
         {fx != null && <text x={W - P.r - 4} y={P.t + 11} textAnchor="end" fontSize="8.5"
               fill={C.amberHi} fontWeight="600" letterSpacing="0.08em">FORECAST</text>}
         <Grid />
         <XLabels labels={c.labels} />
         <YLabels lo={blo} hi={bhi} side="left" />
-        <YLabels lo={llo} hi={lhi} side="right" color={C.red} />
+        {hasLine && <YLabels lo={llo} hi={lhi} side="right" color={C.red} />}
         {c.bars.map((b: any, bi: number) =>
           b.values.map((v: number | null, i: number) => v == null ? null : (
             <rect key={`${bi}-${i}`}
@@ -366,19 +370,20 @@ function GroupedBarLine({ c }: { c: ChartSpec }) {
                   rx="1.5" fill={colors[bi % colors.length]}
                   opacity={i >= fc ? 0.32 : 0.88} />
           )))}
-        {/* line: solid over actuals, dashed over forecast */}
-        <polyline points={polyline(c.line.values.map((v: number | null, i: number) => i < fc ? v : null), llo, lhi, n)}
-                  fill="none" stroke={C.red} strokeWidth="2.2" strokeLinejoin="round" />
-        {fc < n && (
-          <polyline points={polyline(c.line.values.map((v: number | null, i: number) => i >= fc - 1 ? v : null), llo, lhi, n)}
-                    fill="none" stroke={C.red} strokeWidth="2.2" strokeDasharray="5 3" strokeLinejoin="round" />
-        )}
-        {c.line.values.map((v: number | null, i: number) => v == null ? null :
-          <circle key={i} cx={xAt(i, n)} cy={yl(v)} r="3" fill={C.red} opacity={i >= fc ? 0.5 : 1} />)}
+        {hasLine && <>
+          <polyline points={polyline(c.line.values.map((v: number | null, i: number) => i < fc ? v : null), llo, lhi, n)}
+                    fill="none" stroke={C.red} strokeWidth="2.2" strokeLinejoin="round" />
+          {fc < n && (
+            <polyline points={polyline(c.line.values.map((v: number | null, i: number) => i >= fc - 1 ? v : null), llo, lhi, n)}
+                      fill="none" stroke={C.red} strokeWidth="2.2" strokeDasharray="5 3" strokeLinejoin="round" />
+          )}
+          {c.line.values.map((v: number | null, i: number) => v == null ? null :
+            <circle key={i} cx={xAt(i, n)} cy={yl(v)} r="3" fill={C.red} opacity={i >= fc ? 0.5 : 1} />)}
+        </>}
       </svg>
       <Legend items={[
         ...c.bars.map((b: any, i: number) => ({ name: b.name, color: colors[i % colors.length] })),
-        { name: c.line.name, color: C.red },
+        ...(hasLine ? [{ name: c.line.name, color: C.red }] : []),
       ]} />
       {c.model_note && <p className="chart-note">{c.model_note}</p>}
     </div>

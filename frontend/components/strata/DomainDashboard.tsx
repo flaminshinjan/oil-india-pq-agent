@@ -122,6 +122,10 @@ const CHART_PANELS: Record<string, { title: string; sub?: string; keys: string[]
     { title: 'RRR scenario fan — FY26–28', sub: 'Accretion scenarios + arithmetic verification', keys: ['rrr_scenario', 'rrr_verification'] },
     { title: 'Gasification crossover projection', sub: 'Gas share of MMToE output crossing 50%', keys: ['gasification'] },
   ],
+  finance: [
+    { title: 'Earnings & margins (5-yr)', sub: 'Income, EBITDA, PAT and the margin trend — standalone, ₹ crore', keys: ['finance_earnings', 'finance_margins'] },
+    { title: 'Drivers & cash (5-yr)', sub: 'Price realizations vs the cash-flow / capex / exchequer picture', keys: ['finance_realizations', 'finance_cashflow'] },
+  ],
   exploration: [
     { title: 'Drilling intensity vs production', sub: 'Wells + workovers vs crude, FY21–FY26 + forecast', keys: ['wells_workovers'] },
     { title: 'FY26 drilling breakdown', sub: 'Nominated vs other regimes — verified against the grand-total row', keys: ['drilling_breakdown'] },

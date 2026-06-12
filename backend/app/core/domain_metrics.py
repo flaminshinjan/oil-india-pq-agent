@@ -2087,156 +2087,186 @@ def procurement_metrics() -> dict:
 # Domain: Finance
 # ============================================================
 
+# ============================================================
+# Finance page — real figures from OIL's FY21–FY25 Annual Reports
+# (Directors' Reports + Five-Year Performance at a Glance). Standalone
+# unless noted. Two values are disclosed-but-not-yet-extracted from the
+# source PDFs and are left None (rendered "pending"): FY23 crude/gas
+# realizations (AR 2022-23) and FY25 operating cash flow (AR 2024-25).
+# ============================================================
+
+_FINANCE_FYS = ["FY21", "FY22", "FY23", "FY24", "FY25"]
+_FINANCE = {
+    "total_income":  [10561, 16428, 24758, 24514, 23987],
+    "ebitda":        [3208, 7266, 11176, 11643, 10636],
+    "pat":           [1742, 3887, 6810, 5552, 6114],
+    "ebitda_margin": [30.4, 44.2, 45.1, 47.5, 44.3],
+    "pat_margin":    [16.5, 23.7, 27.5, 22.7, 25.5],
+    "crude_real":    [43.98, 78.96, None, 83.03, 78.09],     # $/bbl; FY23 pending AR22-23
+    "gas_price":     [2.09, 2.35, None, 6.50, 6.50],         # $/MMBTU; FY23 pending
+    "crude_prod":    [2.96, 3.01, 3.18, 3.36, 3.46],         # MMT
+    "gas_prod":      [2642, 3045, 3180, 3182, 3252],         # MMSCM
+    "ocf":           [1801, 6005, 7660, 7715, None],         # FY25 pending AR24-25
+    "capex":         [4655, 4367, 5534, 5907, 18170],        # FY25 = group capex (incl NRL ₹9,109 cr)
+    "exchequer":     [3690, 6675, 12330, 11418, 11232],
+    # FY25 KPI snapshot — standalone with consolidated counterpart
+    "kpi": {
+        "total_income": {"fy25": 23987, "fy24": 24514, "consol": 37830},
+        "ebitda":       {"fy25": 10636, "fy24": 11643, "consol": 12824},
+        "pbt":          {"fy25": 7851,  "fy24": 6745,  "consol": 9436},
+        "pat":          {"fy25": 6114,  "fy24": 5552,  "consol": 7040},
+        "net_margin":   {"fy25": 27.64, "fy24": 25.09, "consol": 19.47},
+    },
+}
+
+
+def _finance_charts() -> dict:
+    f = _FINANCE
+    L = _FINANCE_FYS
+    charts: dict = {}
+    # a — Income, EBITDA & PAT (grouped bars + PAT line)
+    charts["finance_earnings"] = {
+        "type": "grouped_bar_line",
+        "subtitle": "Income, EBITDA & PAT (5-yr, ₹ cr)",
+        "labels": L,
+        "bars": [
+            {"name": "Total income", "values": f["total_income"]},
+            {"name": "EBITDA", "values": f["ebitda"]},
+        ],
+        "line": {"name": "PAT", "unit": "₹ cr", "values": f["pat"]},
+        "model_note": "Standalone, ₹ crore. FY24 PAT included a ₹2,363 cr exceptional "
+                      "item (GST on royalty, sub-judice). Source: AR FY21–FY25.",
+    }
+    # b — Margin trend (two lines, shared % axis)
+    charts["finance_margins"] = {
+        "type": "forecast_line",
+        "subtitle": "Margin trend (%)",
+        "y_unit": "%", "y_label": "Margin (%)",
+        "labels": L,
+        "actual": {"name": "EBITDA / revenue", "values": f["ebitda_margin"]},
+        "paths": [{"name": "PAT / revenue", "style": "flat", "values": f["pat_margin"]}],
+        "model_note": "EBITDA margin 30.4 → 44.3%; PAT margin 16.5 → 25.5%. Standalone.",
+    }
+    # c — Realizations (dual axis: crude $/bbl, gas $/MMBTU)
+    charts["finance_realizations"] = {
+        "type": "dual_line",
+        "subtitle": "Realizations — crude $/bbl vs gas $/MMBTU",
+        "labels": L,
+        "left":  {"name": "Crude realization ($/bbl)", "unit": "$/bbl", "values": f["crude_real"]},
+        "right": {"name": "Gas price ($/MMBTU)", "unit": "$/MMBTU", "values": f["gas_price"]},
+        "model_note": "Crude output 2.96 → 3.46 MMT over the window; gas frozen at "
+                      "$6.50/MMBTU since FY24. FY23 realizations pending AR 2022-23.",
+    }
+    # f — Cash flow, capex & exchequer (3 grouped bar series)
+    charts["finance_cashflow"] = {
+        "type": "grouped_bar_line",
+        "subtitle": "Cash flow, capex & exchequer (₹ cr)",
+        "labels": L,
+        "bars": [
+            {"name": "Operating cash flow", "values": f["ocf"]},
+            {"name": "Capex", "values": f["capex"]},
+            {"name": "Contribution to exchequer", "values": f["exchequer"]},
+        ],
+        "model_note": "FY25 capex ₹18,170 cr is GROUP capex (incl. NRL refinery "
+                      "expansion ₹9,109 cr) — not standalone plan expenditure. FY25 "
+                      "operating cash flow pending AR 2024-25.",
+    }
+    return charts
+
+
 def finance_metrics() -> dict:
-    """Five-year financial snapshot extracted dynamically from OIL's
-    Annual Reports via RAG + Anthropic (cached 6 h). Curated JSON is
-    a fallback only — when extraction returns a value, it wins."""
-    from .dynamic_extract import extract_finance
-    data = extract_finance()
-    rows = data.get("five_year_snapshot", []) or []
-    csr_rows = data.get("csr_5yr", []) or []
-    headlines = data.get("highlights_fy25", []) or []
+    """OIL finance page — KPI strip, 5-yr trends, noteworthy items and
+    leadership insights. Every figure is a real Annual-Report number
+    (FY21–FY25); standalone unless a consolidated counterpart is given."""
+    k = _FINANCE["kpi"]
 
-    if not rows:
-        return {"kpis": [], "breakdowns": [], "trend": None, "highlights": []}
-
-    latest = rows[-1]
-    prev = rows[-2] if len(rows) >= 2 else {}
-    five_back = rows[0]
-
-    # Pick the most-recent FY where each metric actually has a value.
-    def _latest_with_key(key: str) -> dict | None:
-        for r in reversed(rows):
-            if r.get(key) is not None:
-                return r
-        return None
-
-    rev_l   = _latest_with_key("revenue_from_operations")
-    pbt_l   = _latest_with_key("pbt")
-    capex_l = _latest_with_key("capex")
-
-    def _pos(seq, idx):
-        try:
-            return seq[idx]
-        except (IndexError, TypeError):
-            return {}
-
-    def _prev_with_key(latest_row: dict | None, key: str) -> dict | None:
-        if not latest_row:
-            return None
-        try:
-            i = rows.index(latest_row)
-        except ValueError:
-            return None
-        for r in reversed(rows[:i]):
-            if r.get(key) is not None:
-                return r
-        return None
-
-    rev_prev   = _prev_with_key(rev_l, "revenue_from_operations")
-    pbt_prev   = _prev_with_key(pbt_l, "pbt")
-    capex_prev = _prev_with_key(capex_l, "capex")
-
-    _, rev_yoy   = _yoy(rev_l.get("revenue_from_operations") if rev_l else None,
-                        rev_prev.get("revenue_from_operations") if rev_prev else None)
-    _, pbt_yoy   = _yoy(pbt_l.get("pbt") if pbt_l else None,
-                        pbt_prev.get("pbt") if pbt_prev else None)
-    _, capex_yoy = _yoy(capex_l.get("capex") if capex_l else None,
-                        capex_prev.get("capex") if capex_prev else None)
-    rev_5yr_pct, _ = _yoy(
-        rev_l.get("revenue_from_operations") if rev_l else None,
-        rows[0].get("revenue_from_operations") if rows else None,
-    )
-
-    latest_csr = next(
-        (r for r in reversed(csr_rows) if r.get("spent_inr_cr") is not None
-         or r.get("obligation_inr_cr") is not None),
-        {},
-    )
-
-    def _fmt_inr(v):
+    def _inr(v):
         return f"₹{v:,.0f}" if isinstance(v, (int, float)) else "—"
 
-    def _fmt_csr(v):
-        return f"₹{v:.2f}" if isinstance(v, (int, float)) else "—"
+    def _yoy_lbl(curr, prev):
+        if not prev:
+            return "—"
+        pct = (curr - prev) / prev * 100
+        arrow = "↑" if pct > 0.05 else ("↓" if pct < -0.05 else "•")
+        return f"{arrow} {abs(pct):.1f}% YoY"
 
+    ti, eb, pbt, pat, nm = (k["total_income"], k["ebitda"], k["pbt"],
+                            k["pat"], k["net_margin"])
+    bps = round((nm["fy25"] - nm["fy24"]) * 100)
     kpis = [
-        _kpi("Revenue from operations",
-             _fmt_inr(rev_l.get("revenue_from_operations") if rev_l else None),
-             "Cr", rev_yoy,
-             note=f"FY{rev_l['fy']} standalone" if rev_l else ""),
-        _kpi("Profit before tax",
-             _fmt_inr(pbt_l.get("pbt") if pbt_l else None),
-             "Cr", pbt_yoy,
-             amber=bool(pbt_l and pbt_prev
-                        and (pbt_l.get("pbt") or 0) < (pbt_prev.get("pbt") or 0))),
-        _kpi("Capex (standalone)",
-             _fmt_inr(capex_l.get("capex") if capex_l else None),
-             "Cr", capex_yoy,
-             note=f"FY{capex_l['fy']}" if capex_l else ""),
-        _kpi("CSR spend",
-             _fmt_csr(latest_csr.get("spent_inr_cr")),
-             "Cr",
-             f"obligation {_fmt_csr(latest_csr.get('obligation_inr_cr'))} Cr"
-             if latest_csr.get("obligation_inr_cr") is not None else "",
-             note=f"FY{latest_csr.get('fy')}" if latest_csr else ""),
+        _kpi("Total income", _inr(ti["fy25"]), "Cr",
+             _yoy_lbl(ti["fy25"], ti["fy24"]),
+             amber=ti["fy25"] < ti["fy24"],
+             note=f"Consolidated ₹{ti['consol']:,} cr · FY25 standalone"),
+        _kpi("EBITDA", _inr(eb["fy25"]), "Cr",
+             _yoy_lbl(eb["fy25"], eb["fy24"]),
+             amber=eb["fy25"] < eb["fy24"],
+             note=f"Consolidated ₹{eb['consol']:,} cr"),
+        _kpi("Profit before tax", _inr(pbt["fy25"]), "Cr",
+             _yoy_lbl(pbt["fy25"], pbt["fy24"]),
+             note=f"Consolidated ₹{pbt['consol']:,} cr"),
+        _kpi("Profit after tax", _inr(pat["fy25"]), "Cr",
+             _yoy_lbl(pat["fy25"], pat["fy24"]),
+             note=f"Consolidated ₹{pat['consol']:,} cr"),
+        _kpi("Net profit margin", f"{nm['fy25']:.1f}%", "",
+             f"{'+' if bps >= 0 else ''}{bps} bps vs {nm['fy24']:.1f}%",
+             note=f"Consolidated {nm['consol']:.1f}%"),
     ]
 
-    # Build breakdowns from rows that ACTUALLY have data — nulls get
-    # dropped so the chart doesn't show "₹0 Cr" placeholder bars.
-    breakdowns: list[dict] = []
-    rev_items = [
-        {"label": f"FY{r['fy']}", "value": r["revenue_from_operations"], "share": 0}
-        for r in rows if r.get("revenue_from_operations") is not None
+    highlights = [
+        "FY24 PBT/PAT included a ₹2,363 cr exceptional item (GST on royalty, "
+        "sub-judice) — FY25 growth is partly a low-base effect.",
     ]
-    if rev_items:
-        breakdowns.append({
-            "title": "Revenue from operations — last FYs disclosed (₹ Cr)",
-            "unit": "₹ Cr",
-            "items": rev_items,
-        })
-    capex_items = [
-        {"label": f"FY{r['fy']}", "value": r["capex"], "share": 0}
-        for r in rows if r.get("capex") is not None
+
+    # Noteworthy items (rendered as the milestones strip)
+    noteworthy = [
+        {"title": "NRL earnings drag", "tags": ["FINANCE"], "status": "watch",
+         "source": "AR FY23–FY25 (consolidated)",
+         "body": "Subsidiary PAT collapsed ₹3,703 → 2,160 → 1,608 cr (FY23→FY25) on "
+                 "compressed refining spreads — flat consolidated PAT vs growing standalone."},
+        {"title": "Group leverage rising for growth", "tags": ["FINANCE"], "status": "watch",
+         "source": "AR FY23–FY24",
+         "body": "Group debt ₹18,549 → 23,640 cr funding the NRL 3→9 MMTPA refinery "
+                 "expansion. Still within the 45% gearing target (23% standalone FY25)."},
+        {"title": "Gas price frozen at $6.50/MMBTU", "tags": ["FINANCE"], "status": "watch",
+         "source": "AR FY24–FY25",
+         "body": "Unchanged for two consecutive years — earnings sensitivity now rests "
+                 "almost entirely on crude price and production volumes."},
     ]
-    if capex_items:
-        breakdowns.append({
-            "title": "Capex programme (₹ Cr)",
-            "unit": "₹ Cr",
-            "items": capex_items,
-        })
-    csr_items = [
-        {"label": f"FY{r['fy']} · obligation",
-         "value": r["obligation_inr_cr"], "share": 0}
-        for r in csr_rows if r.get("obligation_inr_cr") is not None
+
+    # Leadership insights
+    insights = [
+        _insight("fin-i1", "Volume, not price, is carrying earnings",
+                 "PAT grew ~10% (₹5,552 → 6,114 cr) even as crude realization fell "
+                 "$83.03 → $78.09/bbl. Production at decade highs is the engine — and "
+                 "with gas frozen at $6.50 for two years, there is no realization tailwind left.",
+                 l1_title="Why", l1="Crude 2.96 → 3.46 MMT and gas 2,642 → 3,252 MMSCM over "
+                 "five years carried the P&L. Any crude correction below ~$70 hits earnings "
+                 "with no offsetting cushion.",
+                 predictive={"label": "Sensitivity", "output":
+                             "No realization cushion below ~$70 crude; downside is volume-dependent."}),
+        _insight("fin-i2", "A concentrated bet on NRL expansion",
+                 "Standalone PAT +10% in FY25, but consolidated PAT was essentially flat "
+                 "(₹6,980 → 7,040 cr) because NRL profit has more than halved since FY23. "
+                 "Half of the ₹18,170 cr group capex (₹9,109 cr) went into that same refinery, "
+                 "debt-funded.",
+                 l1_title="The open question",
+                 l1="What refining spread does the expanded 9 MMTPA NRL need to clear its "
+                 "cost of capital, and what is the commissioning-timeline risk?"),
+        _insight("fin-i3", "₹2,363 cr litigation overhang + funding gap",
+                 "The GST-on-royalty matter (₹2,363 cr exceptional item in FY24) is sub-judice "
+                 "at the Supreme Court — an adverse ruling would extend the liability. "
+                 "Operating cash flow (~₹7,700 cr) covers standalone capex and ~₹2,000 cr "
+                 "dividend, but not group capex of ₹18,000+ cr; the gap is bridged by debt.",
+                 l1_title="Linked decisions",
+                 l1="Dividend capacity, the capex programme and the court outcome are now "
+                 "linked — best presented as a sources-and-uses waterfall before it is forced."),
     ]
-    if csr_items:
-        breakdowns.append({
-            "title": "CSR obligation by FY (₹ Cr)",
-            "unit": "₹ Cr",
-            "items": csr_items,
-        })
 
-    trend = {
-        "label": "Revenue + PBT + Capex, last 5 FYs (₹ Cr)",
-        "unit": "₹ Cr",
-        "labels": [r["fy"] for r in rows],
-        "series": [
-            {"name": "Revenue", "values": [r.get("revenue_from_operations") for r in rows]},
-            {"name": "PBT",     "values": [r.get("pbt") for r in rows]},
-            {"name": "Capex",   "values": [r.get("capex") for r in rows]},
-        ],
-    }
-
-    highlights = list(headlines)
-    if rev_5yr_pct is not None and rev_5yr_pct > 100:
-        highlights.append(
-            f"Revenue from operations grew {rev_5yr_pct:.0f}% over five "
-            f"years — outsized scaling beyond the underlying production base."
-        )
-
-    return {"kpis": kpis, "breakdowns": breakdowns, "trend": trend,
-            "highlights": highlights}
+    return {"kpis": kpis, "breakdowns": [], "trend": None,
+            "highlights": highlights, "insights": insights,
+            "charts": _finance_charts(),
+            "milestones": noteworthy}
 
 
 # ============================================================
@@ -2275,7 +2305,7 @@ DOMAIN_META = {
     },
     "finance": {
         "title": "Finance",
-        "lead":  "Standalone revenue, PBT, capex, dividend, CSR — five-year snapshot from OIL's Annual Report FY 2024-25 (latest audited cycle).",
+        "lead":  "Finance overview · FY 2024-25 (standalone, audited). Income, EBITDA, PBT, PAT and margins with consolidated counterparts; 5-yr earnings, margin, realization and cash-flow trends. Operationally the strongest in a decade; the next two years hinge on refinery execution and crude staying above ~$70.",
     },
 }
 
