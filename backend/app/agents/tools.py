@@ -227,6 +227,100 @@ def list_available_sources() -> dict:
     return {"groups": out, "total_files": sum(len(v) for v in out.values())}
 
 
+import ast as _ast
+import math as _math
+
+
+def _safe_eval(expr: str) -> float:
+    """Evaluate an arithmetic expression with a hard whitelist — numbers,
+    + - * / // % **, parentheses, unary +/-, and a few named helpers. No
+    names, attributes, comprehensions, or builtins. Raises on anything else."""
+    def _growth(curr, prior):
+        if prior == 0:
+            raise ValueError("growth from a zero base is undefined")
+        return (curr - prior) / prior * 100.0
+
+    def _cagr(end, start, years):
+        if start <= 0 or years <= 0:
+            raise ValueError("cagr needs positive start and years")
+        return ((end / start) ** (1.0 / years) - 1.0) * 100.0
+
+    def _pct(part, whole):
+        if whole == 0:
+            raise ValueError("percent of a zero whole is undefined")
+        return part / whole * 100.0
+
+    funcs = {
+        "growth": _growth, "cagr": _cagr, "pct": _pct,
+        "abs": abs, "round": round, "min": min, "max": max, "sum": sum,
+        "sqrt": _math.sqrt,
+    }
+
+    def _ev(node):
+        if isinstance(node, _ast.Expression):
+            return _ev(node.body)
+        if isinstance(node, _ast.Constant):
+            if isinstance(node.value, (int, float)):
+                return node.value
+            raise ValueError("only numeric constants allowed")
+        if isinstance(node, _ast.BinOp):
+            l, r = _ev(node.left), _ev(node.right)
+            op = node.op
+            if isinstance(op, _ast.Add): return l + r
+            if isinstance(op, _ast.Sub): return l - r
+            if isinstance(op, _ast.Mult): return l * r
+            if isinstance(op, _ast.Div): return l / r
+            if isinstance(op, _ast.FloorDiv): return l // r
+            if isinstance(op, _ast.Mod): return l % r
+            if isinstance(op, _ast.Pow): return l ** r
+            raise ValueError("operator not allowed")
+        if isinstance(node, _ast.UnaryOp):
+            v = _ev(node.operand)
+            if isinstance(node.op, _ast.UAdd): return +v
+            if isinstance(node.op, _ast.USub): return -v
+            raise ValueError("unary operator not allowed")
+        if isinstance(node, _ast.Call):
+            if not isinstance(node.func, _ast.Name) or node.func.id not in funcs:
+                raise ValueError("only growth/cagr/pct/abs/round/min/max/sum/sqrt allowed")
+            args = [_ev(a) for a in node.args]
+            return funcs[node.func.id](*args)
+        if isinstance(node, (_ast.List, _ast.Tuple)):
+            return [_ev(e) for e in node.elts]
+        raise ValueError(f"disallowed expression: {type(node).__name__}")
+
+    tree = _ast.parse(expr, mode="eval")
+    return _ev(tree)
+
+
+@tool
+def compute(
+    expression: Annotated[str, "Arithmetic to evaluate. Use the helpers "
+                               "growth(curr,prior), cagr(end,start,years), "
+                               "pct(part,whole); or plain +-*/() on numbers. "
+                               "Examples: 'growth(3186,3045)', "
+                               "'cagr(3186,2642,4)', 'pct(3.449953,3.776)', "
+                               "'6.03+6.15+5.95+5.85+5.87'."],
+) -> dict:
+    """Deterministic calculator. **MANDATORY** for every derived number you
+    state — YoY %, CAGR, share/ratio, percentage-point change, sum, average.
+    Never compute these in your head: a wrong percentage in front of an
+    executive is a critical failure. Pass the exact source values; this tool
+    returns the precise result so you quote it verbatim.
+
+    Returns the input expression, the full-precision result, and a value
+    rounded to 2 dp. On any malformed/forbidden expression it returns an
+    ``error`` instead of a result — fix the expression and retry."""
+    try:
+        val = _safe_eval(expression)
+    except Exception as exc:  # noqa: BLE001
+        return {"expression": expression, "error": str(exc), "result": None}
+    if isinstance(val, list):
+        return {"expression": expression, "result": val,
+                "result_rounded": [round(float(x), 2) for x in val]}
+    return {"expression": expression, "result": val,
+            "result_rounded": round(float(val), 2)}
+
+
 # Back-compat exports — the morning-brief orchestrator still imports the
 # old names. Map them to the new tools so nothing breaks.
 search_pq_archive       = search_parliamentary_replies
@@ -236,6 +330,7 @@ ALL_TOOLS = [
     search_oil_data,
     search_parliamentary_replies,
     search_corporate_reports,
+    compute,
     search_web,
     list_available_sources,
 ]
