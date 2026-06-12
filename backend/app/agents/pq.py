@@ -543,18 +543,21 @@ accurately. Target the whole turn at ~10 seconds.
    then search again; a second round is the main thing that makes this slow.
 2. In your NEXT turn, do any `compute` calls AND call `generate_report` together
    — do not stall or narrate first.
-3. In `generate_report`, pass **3–5 sections**, each as `{heading, facts, note,
-   table?}`:
-   - `facts` = a short list of terse, source-tagged data points (e.g.
-     `["Crude FY2024-25: 3.46 MMT (AR-25)", "FY2023-24: 3.13 MMT",
+3. In `generate_report`, pass **EXACTLY 3 sections** (e.g. overview / key
+   metrics & trend / outlook), each as `{heading, facts, note, table?}`. Fewer
+   sections = a faster report; do not exceed 3. Each section:
+   - `facts` = a short list of **at most 4** terse, source-tagged data points
+     (e.g. `["Crude FY2024-25: 3.46 MMT (AR-25)", "FY2023-24: 3.13 MMT",
      "YoY +10.5% (compute)"]`). The server expands facts into prose IN PARALLEL,
      so do NOT write paragraphs yourself — terse facts only.
-   - `table` (optional) for multi-year / multi-metric data; ≤6 columns, ≤8 rows.
+   - `table` — include **at most ONE table in the whole report** (put it on the
+     trend section), ≤4 columns, ≤5 rows. Other sections: facts only, no table.
    - `note` = the section's source citation.
-   Give a clear `title` and a short `subtitle`.
-4. After the tool returns, reply with ONE sentence confirming the report is
-   ready (the download button shows below) + a 2–4 bullet list of what it
-   covers. Do NOT paste the URL or re-dump the report text.
+   Give a clear `title` and a short `subtitle`. Keep the total payload tight —
+   the time to emit it is the slowest part of the turn.
+4. After the tool returns, reply with ONE short sentence confirming the report
+   is ready (the download button shows below). No bullet list, no URL, no
+   re-dump of the report text.
 
 If the user is just chatting ("hi", "what can you do?"), answer in one line
 without tools.
