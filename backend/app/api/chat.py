@@ -11,9 +11,9 @@ from typing import AsyncIterator
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from ..agents.pq import get_fast_graph, get_graph, is_report_request, system_prompt
+from ..agents.pq import get_fast_graph, get_graph, is_report_request
 from ..config import settings
 from ..schemas.wire import (
     ChatRequest,
@@ -29,7 +29,10 @@ router = APIRouter()
 
 
 def _to_lc_messages(req: ChatRequest):
-    msgs = [SystemMessage(content=system_prompt())]
+    # No SystemMessage here — each graph's own llm_node injects its prompt
+    # builder (full prompt for the main graph, the short report prompt for the
+    # fast graph). Prepending one here would override the fast graph's prompt.
+    msgs = []
     for m in req.messages:
         if m.role == "user":
             msgs.append(HumanMessage(content=m.content))
