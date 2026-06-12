@@ -22,12 +22,29 @@ or `[web: <title> — <url>]` so attribution is unambiguous.
 from __future__ import annotations
 
 import os
+import re
 from typing import Annotated, Any
 
 from langchain_core.tools import tool
 from loguru import logger
 
 from ..retrieval.vectorstore import get_store
+
+
+# --- fiscal-year helpers for recency-aware ranking of corporate reports ---
+_FY_QUERY_RE = re.compile(r"(20\d{2})\s*[-_/]\s*(\d{2})")
+
+
+def _fy_end_year(report_fy: str) -> int:
+    """'2024-25' -> 2025, '2020-21' -> 2021, '' -> 0."""
+    m = re.match(r"(20\d{2})[-_](\d{2})", report_fy or "")
+    return int(m.group(1)[:2] + m.group(2)) if m else 0
+
+
+def _explicit_fys(query: str) -> set[str]:
+    """Fiscal years the query NAMES explicitly, e.g. 'FY2022-23' -> {'2022-23'}.
+    When the user pins a year we honour it; otherwise we tilt toward the latest."""
+    return {f"{m.group(1)}-{m.group(2)}" for m in _FY_QUERY_RE.finditer(query or "")}
 
 
 # Files in DB/ that are synthetic demo feeds, not OIL disclosures. The
@@ -54,6 +71,7 @@ def _format_hit(hit) -> dict[str, Any]:
         "filename": md.get("filename", ""),
         "session":  md.get("session", ""),
         "kind":     md.get("kind", ""),
+        "fy":       md.get("report_fy", ""),
         "section":  md.get("section", ""),
         "score":    round(float(hit.score), 3),
         "excerpt":  hit.text,
@@ -131,15 +149,41 @@ def search_corporate_reports(
     figures, training spend.
 
     The latest BRSR / ESG numbers supersede older PQ snapshots.
+
+    Results are recency-ranked: when the query does not pin a specific
+    fiscal year, the **most recent** report (e.g. the FY2024-25 Annual
+    Report) is surfaced first so "latest financials" never silently falls
+    back to an older year. Naming a year in the query (e.g. "FY2022-23")
+    pins results to that year instead.
     """
     k = max(1, min(int(k or 5), 10))
-    raw = get_store().search("pq", query, k=k * 2, with_siblings=True, max_total=14)
+    # Fetch a wider candidate pool than we return, so the recency re-rank has
+    # multiple fiscal years to choose from (raw embedding scores alone tend to
+    # bury the latest Annual Report behind older ones for financial queries).
+    raw = get_store().search("pq", query, k=k * 4, with_siblings=True, max_total=k * 4 + 6)
     corp_hits = [h for h in raw if not (h.metadata or {}).get("source", "").startswith("PQs/")]
+
+    asked = _explicit_fys(query)
+
+    def _rank(h) -> float:
+        md = h.metadata or {}
+        score = float(h.score)
+        fy = md.get("report_fy", "")
+        if asked:
+            # User pinned a year: float matching reports decisively, leave the
+            # rest on raw relevance (still available as comparatives).
+            return score + (0.35 if fy in asked else 0.0)
+        # No year named -> tilt toward the most recent report. 0.05/yr reliably
+        # floats the latest AR above near-tied older ones while still keeping
+        # prior-year comparatives in the result set.
+        return score + 0.05 * max(0, _fy_end_year(fy) - 2020)
+
+    corp_hits.sort(key=_rank, reverse=True)
     corp_hits = corp_hits[:k]
     return {
         "query":   query,
         "count":   len(corp_hits),
-        "note":    "Annual reports / BRSR / ESG only.",
+        "note":    "Annual reports / BRSR / ESG only — recency-ranked (latest FY first unless a year is named).",
         "results": [_format_hit(h) for h in corp_hits],
     }
 
