@@ -104,7 +104,18 @@ function renderBlocks(blocks: AssistantBlock[], streaming: boolean) {
 
   blocks.forEach((b, i) => {
     if (b.kind === 'tool') {
-      toolBuf.push(b);
+      const rurl = (b.result as any)?.report_url;
+      if (b.name === 'generate_report' && rurl) {
+        flush(`b${i}`);
+        out.push(
+          <ReportDownload key={`rep-${i}`}
+            url={rurl as string}
+            filename={((b.result as any)?.filename as string) || 'digby-report.pdf'}
+            title={((b.result as any)?.title as string) || 'Report'} />,
+        );
+      } else {
+        toolBuf.push(b);
+      }
     } else {
       flush(`b${i}`);
       out.push(
@@ -117,6 +128,18 @@ function renderBlocks(blocks: AssistantBlock[], streaming: boolean) {
   });
   flush('tail');
   return out;
+}
+
+function ReportDownload({ url, filename, title }: { url: string; filename: string; title: string }) {
+  return (
+    <a className="report-dl" href={url} download={filename} target="_blank" rel="noopener noreferrer">
+      <span className="report-dl-ico" aria-hidden>↓</span>
+      <span className="report-dl-text">
+        <span className="report-dl-title">{title}</span>
+        <span className="report-dl-sub">PDF report · {filename} · click to download</span>
+      </span>
+    </a>
+  );
 }
 
 function Citations({ citations, onOpenSource }: { citations: Citation[]; onOpenSource?: (f: string) => void }) {

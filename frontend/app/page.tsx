@@ -110,7 +110,7 @@ export default function Landing() {
         <div className="lh-bar-in">
           <Link href="/" className="lh-brand">
             <span className="lh-brand-mark" aria-hidden>
-              <BrandGlyph />
+              <img src="/oil-logo.png" alt="Digby" className="lh-brand-logo" />
             </span>
             <span className="lh-brand-text">
               <span className="lh-brand-name">DIGBY</span>
@@ -304,7 +304,9 @@ export default function Landing() {
       <footer className="lh-foot">
         <div className="lh-foot-in">
           <div className="lh-foot-brand">
-            <span className="lh-brand-mark" aria-hidden><BrandGlyph /></span>
+            <span className="lh-brand-mark" aria-hidden>
+              <img src="/oil-logo.png" alt="Digby" className="lh-brand-logo" />
+            </span>
             DIGBY
           </div>
           <div className="lh-foot-meta">
@@ -405,13 +407,3 @@ function Bubble({ side, voice, children }:
   );
 }
 
-function BrandGlyph() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden>
-      <rect width="20" height="20" rx="5" fill="var(--accent)" />
-      <rect x="4" y="5"  width="12" height="2.2" rx="1.1" fill="var(--surface)" />
-      <rect x="4" y="9"  width="12" height="2.2" rx="1.1" fill="var(--surface)" opacity="0.7" />
-      <rect x="4" y="13" width="12" height="2.2" rx="1.1" fill="var(--surface)" opacity="0.45" />
-    </svg>
-  );
-}

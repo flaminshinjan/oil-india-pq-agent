@@ -4299,3 +4299,26 @@
 .chart-table td { padding: 8px 10px; color: var(--ink-2); border-bottom: 0.5px solid var(--line); }
 .chart-table td.num { font-feature-settings: "tnum" 1; }
 .chart-table tbody tr:nth-child(even) { background: var(--surface-2); }
+
+/* new Digby logo mark in brand spots */
+.lh-brand-mark { background: #fff !important; overflow: hidden; }
+.lh-brand-logo { width: 100%; height: 100%; object-fit: contain; padding: 2px; }
+
+/* PDF report download card in chat */
+.report-dl {
+  display: flex; align-items: center; gap: 12px;
+  margin: 10px 0; padding: 12px 14px;
+  border: 0.5px solid color-mix(in oklab, var(--accent) 40%, var(--line));
+  border-radius: 12px; background: var(--accent-tint);
+  text-decoration: none; transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.report-dl:hover { transform: translateY(-1px);
+  box-shadow: 0 8px 22px -12px color-mix(in oklab, var(--ink) 30%, transparent); }
+.report-dl-ico {
+  flex: none; width: 34px; height: 34px; border-radius: 9px;
+  display: grid; place-items: center; font-size: 17px; font-weight: 600;
+  background: var(--accent); color: #fff;
+}
+.report-dl-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.report-dl-title { font-size: 13.5px; font-weight: var(--w-med); color: var(--ink); }
+.report-dl-sub { font-size: 11px; color: var(--ink-3); }

@@ -428,6 +428,24 @@ async def os_domain(key: str):
     return payload
 
 
+@router.get("/report/{rid}")
+async def os_report(rid: str):
+    """Serve a generated PDF report by id (created by the chat's
+    generate_report tool). Download filename comes from REPORT_NAMES."""
+    import re as _re
+    from fastapi.responses import FileResponse, JSONResponse
+    from ..core.report import REPORTS_DIR, REPORT_NAMES
+
+    safe = _re.sub(r"[^a-f0-9]", "", rid.replace(".pdf", ""))
+    path = REPORTS_DIR / f"{safe}.pdf"
+    if not safe or not path.exists():
+        return JSONResponse({"error": "report not found or expired"}, status_code=404)
+    return FileResponse(
+        str(path), media_type="application/pdf",
+        filename=REPORT_NAMES.get(safe, "digby-report.pdf"),
+    )
+
+
 @router.get("/agents")
 async def os_agents():
     """List every domain agent Atlas knows about with a one-line blurb."""

@@ -321,6 +321,47 @@ def compute(
             "result_rounded": round(float(val), 2)}
 
 
+@tool
+def generate_report(
+    title: Annotated[str, "Report title, e.g. 'OIL India — Production & Reserves Report (FY2025-26)'."],
+    sections: Annotated[
+        list,
+        "Ordered list of section objects. Each section is a dict with: "
+        "`heading` (str), `body` (str — paragraphs separated by blank lines; "
+        "use **bold**; lines beginning '- ' become bullets), optional "
+        "`table` ({\"columns\": [str], \"rows\": [[cell,...]]}), and optional "
+        "`note` (str — the source citation for that section). Put any 3+-point "
+        "or multi-year data in a `table`, not prose.",
+    ],
+    subtitle: Annotated[str, "Optional one-line subtitle / status line."] = "",
+) -> dict:
+    """Generate a polished, downloadable **PDF report**, Digby-branded (logo,
+    headings, tables, footer). Call this whenever the user asks to "generate /
+    create / make / download / export a report" (or a PDF / briefing note) on a
+    topic.
+
+    Build the report FIRST from the data tools (search_oil_data /
+    search_corporate_reports) and `compute` — every figure must be real and
+    sourced; never invent numbers, and put the source in each section's `note`.
+    Make it substantial: a title, several sections with analysis, and tables
+    for any multi-year or multi-metric data.
+
+    Returns {report_url, filename, title}. After it returns, tell the user the
+    report is ready and that a download button is shown — do NOT paste the raw
+    URL or restate the whole report."""
+    try:
+        from ..core.report import build_report_pdf, REPORT_NAMES
+        spec = {"title": title, "subtitle": subtitle,
+                "sections": sections if isinstance(sections, list) else []}
+        _path, filename, rid = build_report_pdf(spec)
+        REPORT_NAMES[rid] = filename
+        return {"report_url": f"/api/os/report/{rid}", "filename": filename,
+                "title": title, "status": "ready"}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"[generate_report] failed: {exc}")
+        return {"error": f"report generation failed: {exc}", "report_url": None}
+
+
 # Back-compat exports — the morning-brief orchestrator still imports the
 # old names. Map them to the new tools so nothing breaks.
 search_pq_archive       = search_parliamentary_replies
@@ -331,6 +372,7 @@ ALL_TOOLS = [
     search_parliamentary_replies,
     search_corporate_reports,
     compute,
+    generate_report,
     search_web,
     list_available_sources,
 ]

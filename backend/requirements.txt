@@ -41,3 +41,6 @@ tavily-python==0.5.0
 # with langchain / fastapi.
 pipecat-ai[deepgram,cartesia,anthropic,silero,websocket]==0.0.62
 numpy==1.26.4    # required by silero VAD
+
+# PDF report generation
+reportlab==4.2.5
