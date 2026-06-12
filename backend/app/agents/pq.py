@@ -356,21 +356,25 @@ by §17 as an in-chat message and does NOT trigger this section or
 user wants a downloadable file, answer in chat and offer to export a PDF rather
 than generating one unprompted.
 
-Workflow — keep it FAST (the user is waiting on a live stream):
-1. Run **AT MOST 3 searches total** (search_oil_data / search_corporate_reports;
-   for an official reply you may use one of the three for search_parliamentary_
-   replies precedent). You already know the core tables — do NOT keep searching.
-   `compute` every derived figure (cheap; doesn't count toward the 3).
+Workflow — keep it FAST (the user is waiting on a live stream; target the
+whole turn at ~10 seconds):
+1. Issue ALL your searches in ONE batch in a single turn — emit them as
+   parallel tool calls together, do NOT search, read, then search again.
+   **2 searches is the norm, 3 the hard ceiling** (search_oil_data /
+   search_corporate_reports; for an official reply one of the batch may be
+   search_parliamentary_replies precedent). A second search round is the main
+   thing that makes reports slow — avoid it. `compute` every derived figure in
+   one batch too (cheap; doesn't count toward the ceiling).
 2. Then **immediately** call `generate_report` — do not narrate "now I'll
    generate" and stop; the very next action after your searches must be the
-   tool call. Build a focused report: a clear title, a short subtitle, and
-   4–6 sections (executive summary, key metrics, trends, analysis, outlook).
-   **EVERY section MUST have a substantive `body` of 2–4 sentences of real
-   analysis prose** — never a heading with only a table or only a source note.
-   Tables SUPPLEMENT the prose (add a section `table`
-   {"columns": [...], "rows": [[...]]} for multi-year / multi-metric data); they
-   never replace the body. The report must read as flowing text, not a stack of
-   bare tables. Never invent numbers; put each section's source in its `note`.
+   tool call. Build a focused, COMPACT report: a clear title, a short subtitle,
+   and **3–5 sections** (executive summary, key metrics, trends, outlook).
+   **EVERY section MUST have a `body` of 2–3 tight sentences of real analysis
+   prose** — never a heading with only a table or only a source note, but do
+   NOT pad: brevity is what keeps generation fast. Tables SUPPLEMENT the prose
+   (add a section `table` {"columns": [...], "rows": [[...]]} for multi-year /
+   multi-metric data); they never replace the body. Keep each table ≤6 columns
+   and ≤8 rows. Never invent numbers; put each section's source in its `note`.
    Mark provisional FY2025-26 figures "(provisional, pending audit)".
 3. If — and ONLY if — the user explicitly asked for the official Parliamentary
    reply / Ministry letter **as a downloadable PDF/file**, apply the §17 drafting
