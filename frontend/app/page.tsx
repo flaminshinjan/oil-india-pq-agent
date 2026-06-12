@@ -128,8 +128,34 @@ export default function Landing() {
         </div>
       </header>
 
-      {/* --- Hero --- */}
+      {/* --- Hero (Digboi scene) --- */}
       <section className="lh-hero">
+        <div className="lh-hero-bg" aria-hidden />
+        <div className="lh-hero-veil" aria-hidden />
+
+        {/* 1889 Digboi stamp */}
+        <div className="lh-stamp" aria-hidden>
+          <svg viewBox="0 0 140 140" className="lh-stamp-svg">
+            <circle cx="70" cy="70" r="66" className="lh-stamp-ring" />
+            <circle cx="70" cy="70" r="57" className="lh-stamp-ring lh-stamp-ring-2" />
+            <defs>
+              <path id="stampTop" d="M 22,70 A 48,48 0 0 1 118,70" />
+              <path id="stampBot" d="M 26,70 A 44,44 0 0 0 114,70" />
+            </defs>
+            <text className="lh-stamp-arc">
+              <textPath href="#stampTop" startOffset="50%" textAnchor="middle">
+                DIGBOI, ASSAM
+              </textPath>
+            </text>
+            <text className="lh-stamp-arc">
+              <textPath href="#stampBot" startOffset="50%" textAnchor="middle">
+                ASIA’S OIL STORY BEGAN
+              </textPath>
+            </text>
+            <text x="70" y="84" textAnchor="middle" className="lh-stamp-year">1889</text>
+          </svg>
+        </div>
+
         <div className="lh-hero-in">
           <span className="lh-pill">
             <span className={`lh-dot ${ready ? 'is-ok' : 'is-warn'}`} />
@@ -137,24 +163,39 @@ export default function Landing() {
             <span className="lh-pill-sep">·</span>
             <span className="lh-pill-quiet">Advisory only</span>
           </span>
+
           <h1 className="serif lh-h1">
-            One advisory layer for everything OIL
-            <span className="lh-h1-accent"> ships, drills, and discloses.</span>
+            Hi, I’m <span className="lh-h1-accent">Digby</span> —<br />
+            named after the town where<br />
+            <span className="lh-h1-accent">Asia’s oil story began.</span>
           </h1>
-          <p className="lh-lead">
-            Digby reads the annual report, the BRSR, the ESG data book, the
-            10-year sheet, the parliamentary replies and the live HSE feed —
-            and answers whatever is on top of leadership’s mind. In writing
-            or out loud, in under a second.
-          </p>
+          <p className="lh-subline">How can I help you today?</p>
+
+          <div className="lh-demo-card">
+            <span className="lh-demo-ico" aria-hidden>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+                   stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"
+                   strokeLinejoin="round">
+                <path d="M22 10 12 5 2 10l10 5 10-5Z" />
+                <path d="M6 12v5c0 1 2.7 2.5 6 2.5s6-1.5 6-2.5v-5" />
+              </svg>
+            </span>
+            <p>
+              For this demo, I’ve been trained on just a limited set of
+              resources shared with us and Oil India’s public data — only
+              enough to show you what my capabilities are.
+            </p>
+          </div>
+
           <div className="lh-cta-row">
             <Link href="/dashboard" className="lh-cta lh-cta-primary">
-              Open the dashboard <span aria-hidden>→</span>
+              Let’s talk <span aria-hidden>→</span>
             </Link>
-            <a href="#preview" className="lh-cta lh-cta-ghost">
-              See it work
-            </a>
+            <Link href="/dashboard" className="lh-cta lh-cta-ghost">
+              What can you do?
+            </Link>
           </div>
+
           <div className="lh-trust">
             <span className="lh-trust-eyebrow">Trusted patterns</span>
             <span className="lh-trust-bullet">Read-only</span>
@@ -162,6 +203,18 @@ export default function Landing() {
             <span className="lh-trust-bullet">Streaming first</span>
             <span className="lh-trust-bullet">Voice native</span>
           </div>
+        </div>
+
+        {/* location pin */}
+        <div className="lh-pin" aria-hidden>
+          <span className="lh-pin-ico">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+              <path d="M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5Z" />
+            </svg>
+          </span>
+          <span className="lh-pin-text">
+            <b>Digboi</b><br />Where Asia’s oil journey began.
+          </span>
         </div>
       </section>
 

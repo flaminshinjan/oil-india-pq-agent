@@ -4322,3 +4322,122 @@
 .report-dl-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .report-dl-title { font-size: 13.5px; font-weight: var(--w-med); color: var(--ink); }
 .report-dl-sub { font-size: 11px; color: var(--ink-3); }
+
+/* ============================================================
+   Landing hero — Digboi scene (mockup-matched)
+   ============================================================ */
+:root { --hero-green: #2f6e54; --hero-cream: #f4f1ea; --hero-ink: #2a2a28; }
+
+/* brand bar floats transparent over the scene */
+.landing .lh-bar {
+  position: absolute; top: 0; left: 0; right: 0;
+  background: transparent; border-bottom: none; backdrop-filter: none;
+  z-index: 5;
+}
+.landing .lh-bar-nav .lh-bar-link { color: var(--hero-ink); opacity: 0.7; }
+.landing .lh-bar-nav .lh-cta { background: var(--hero-green); color: #fff; border-color: var(--hero-green); }
+
+.lh-hero {
+  position: relative; min-height: 100vh;
+  display: flex; align-items: center;
+  overflow: hidden; padding: 0;
+}
+.lh-hero-bg {
+  position: absolute; inset: 0;
+  background: url('/digboi-hero.jpg') center right / cover no-repeat;
+}
+.lh-hero-veil {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(90deg, var(--hero-cream) 0%,
+      color-mix(in oklab, var(--hero-cream) 92%, transparent) 34%,
+      color-mix(in oklab, var(--hero-cream) 40%, transparent) 58%,
+      transparent 78%),
+    linear-gradient(0deg, color-mix(in oklab, var(--hero-cream) 55%, transparent), transparent 30%);
+}
+.lh-hero-in {
+  position: relative; z-index: 2;
+  max-width: 1180px; margin: 0 auto; width: 100%;
+  padding: 0 48px;
+}
+
+/* pill */
+.landing .lh-pill {
+  background: rgba(255,255,255,0.72); border: 0.5px solid rgba(0,0,0,0.08);
+  color: var(--hero-ink); backdrop-filter: blur(4px); margin-bottom: 22px;
+}
+.landing .lh-pill-quiet { color: color-mix(in oklab, var(--hero-ink) 55%, transparent); }
+
+/* headline */
+.lh-hero .lh-h1 {
+  font-size: 58px; line-height: 1.1; letter-spacing: -0.015em;
+  color: var(--hero-ink); margin: 0 0 14px; font-weight: 500; max-width: 13ch;
+}
+.lh-hero .lh-h1-accent { color: var(--hero-green); }
+.lh-subline {
+  font-size: 21px; color: color-mix(in oklab, var(--hero-ink) 78%, transparent);
+  margin: 0 0 22px; letter-spacing: -0.01em;
+}
+@media (max-width: 820px) { .lh-hero .lh-h1 { font-size: 38px; } }
+
+/* demo card */
+.lh-demo-card {
+  display: flex; gap: 13px; align-items: flex-start;
+  max-width: 500px; margin: 0 0 24px;
+  background: rgba(255,255,255,0.66); backdrop-filter: blur(6px);
+  border: 0.5px solid rgba(0,0,0,0.08); border-radius: 14px;
+  padding: 15px 17px;
+}
+.lh-demo-card p { margin: 0; font-size: 13.5px; line-height: 1.55;
+  color: color-mix(in oklab, var(--hero-ink) 82%, transparent); }
+.lh-demo-ico {
+  flex: none; width: 36px; height: 36px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: color-mix(in oklab, var(--hero-green) 14%, #fff);
+  color: var(--hero-green);
+}
+
+/* CTAs */
+.lh-hero .lh-cta-row { display: flex; gap: 12px; margin-bottom: 30px; flex-wrap: wrap; }
+.lh-hero .lh-cta {
+  border-radius: 999px; padding: 13px 24px; font-size: 14.5px; font-weight: 500;
+  display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+.lh-hero .lh-cta-primary { background: var(--hero-green); color: #fff; border: none;
+  box-shadow: 0 10px 26px -12px color-mix(in oklab, var(--hero-green) 70%, transparent); }
+.lh-hero .lh-cta-primary:hover { transform: translateY(-1px);
+  background: color-mix(in oklab, var(--hero-green) 88%, #000); }
+.lh-hero .lh-cta-ghost { background: rgba(255,255,255,0.85); color: var(--hero-ink);
+  border: 0.5px solid rgba(0,0,0,0.14); }
+.lh-hero .lh-cta-ghost:hover { transform: translateY(-1px); background: #fff; }
+
+/* trusted patterns */
+.lh-hero .lh-trust { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.lh-hero .lh-trust-eyebrow { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: color-mix(in oklab, var(--hero-ink) 50%, transparent); font-weight: 500; }
+.lh-hero .lh-trust-bullet { font-size: 13px; color: var(--hero-ink); position: relative;
+  padding-left: 16px; }
+.lh-hero .lh-trust-bullet::before { content: ''; position: absolute; left: 0; top: 50%;
+  width: 7px; height: 7px; border-radius: 50%; background: var(--hero-green); transform: translateY(-50%); }
+
+/* 1889 stamp */
+.lh-stamp { position: absolute; top: 86px; right: 90px; z-index: 3; width: 150px; height: 150px;
+  opacity: 0.92; }
+.lh-stamp-svg { width: 100%; height: 100%; }
+.lh-stamp-ring { fill: none; stroke: var(--hero-green); stroke-width: 1.4; opacity: 0.85; }
+.lh-stamp-ring-2 { stroke-width: 0.7; opacity: 0.6; }
+.lh-stamp-arc { fill: var(--hero-green); font-size: 9.5px; font-weight: 700;
+  letter-spacing: 1.4px; font-family: var(--strata-sans), sans-serif; }
+.lh-stamp-year { fill: var(--hero-green); font-size: 30px; font-weight: 700;
+  font-family: var(--strata-serif), serif; letter-spacing: 1px; }
+@media (max-width: 1000px) { .lh-stamp { display: none; } }
+
+/* location pin */
+.lh-pin { position: absolute; right: 64px; bottom: 64px; z-index: 3;
+  display: flex; gap: 8px; align-items: flex-start; max-width: 150px; }
+.lh-pin-ico { color: var(--hero-green); flex: none; margin-top: 1px; }
+.lh-pin-text { font-size: 12px; line-height: 1.4;
+  color: color-mix(in oklab, var(--hero-ink) 72%, transparent); }
+.lh-pin-text b { color: var(--hero-ink); }
+@media (max-width: 1000px) { .lh-pin { display: none; } }
