@@ -12,9 +12,10 @@ primary_region = "bom"
   # runtime_data_dir: where agents read DB/ Excels + synthetic/ JSON at runtime
   RUNTIME_DATA_DIR = "/app/data"
   EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-  # Haiku 4.5 — significantly faster output streaming than Sonnet for this
-  # RAG workload, still supports the 64K output ceiling.
-  ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
+  # Sonnet 4.6 — stronger instruction-following than Haiku for this RAG
+  # workload; the draft-reply-vs-PDF and source-tier guardrails hold more
+  # reliably on it, at the cost of somewhat slower streaming.
+  ANTHROPIC_MODEL = "claude-sonnet-4-6"
 
 [http_service]
   internal_port = 8080
