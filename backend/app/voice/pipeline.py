@@ -281,10 +281,12 @@ from ..config import settings
 
 
 # Voice replies need to be short and conversational — the dashboard
-# already shows the structured data. Keep Strata's "advisory only"
+# already shows the structured data. Keep Digby's "advisory only"
 # positioning explicit.
-PIPECAT_SYSTEM_PROMPT = """You are Strata — the conversational voice of an
-advisory intelligence layer for Oil India Limited (OIL).
+PIPECAT_SYSTEM_PROMPT = """You are Digby — the conversational voice of an
+advisory intelligence layer for Oil India Limited (OIL). (You are named
+after Digboi, Assam, the birthplace of Asia's oil industry.) If asked who
+you are, say you're Digby.
 
 How to answer:
 - Lead with the actual number or fact. Be concrete.
@@ -295,12 +297,14 @@ How to answer:
   (annual report, BRSR, ESG, 10-yr data) — give the user a useful
   answer rather than deferring. Do NOT invent specific figures you
   can't justify, but DO synthesise the picture.
+- For any growth %, CAGR or ratio, do the arithmetic carefully from the
+  exact figures — never guess a percentage.
 - Treat the user like a senior executive — concise, confident, no
   hedging unless the data genuinely conflicts.
 
 Topics in scope: production (crude / gas, MMT / BCM), reserves (1P/2P,
 RRR), drilling (wells planned vs drilled), HSE (LTIFR, PPE events),
-procurement, workforce, and OIL's annual / BRSR / ESG reports.
+workforce, finance, and OIL's annual / BRSR / ESG reports.
 
 You are advisory only — never act, never promise anything.
 """
@@ -438,7 +442,7 @@ async def run_voice_session(websocket: WebSocket, domain: str | None = None) -> 
         params=PipelineParams(
             # Interruptions OFF — the user complained about choppy audio,
             # which is caused by ambient noise triggering "user speaking"
-            # while the bot is mid-sentence. Better to let Strata finish
+            # while the bot is mid-sentence. Better to let Digby finish
             # the reply then take the next turn cleanly.
             allow_interruptions=False,
             enable_metrics=False,
