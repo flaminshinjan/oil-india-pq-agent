@@ -139,14 +139,31 @@ interface Props {
   onOpenSource?: (filename: string) => void;
 }
 
+// Session cache of fetched domain payloads, keyed by domain. Lives at module
+// scope so it persists across mount/unmount as the user switches tabs.
+const DOMAIN_CACHE = new Map<string, Payload>();
+
 export function DomainDashboard({ domain, onOpenSource }: Props) {
-  const [data, setData] = useState<Payload | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Each domain is fetched lazily on first open and then cached for the
+  // session (module-level, so it survives this component unmounting when the
+  // user flips to the Brief tab and back). Reopening a tab is instant — no
+  // refetch, no skeleton.
+  const [data, setData] = useState<Payload | null>(() => DOMAIN_CACHE.get(domain) ?? null);
+  const [loading, setLoading] = useState(() => !DOMAIN_CACHE.has(domain));
   const [error, setError] = useState<string | null>(null);
   const [drill, setDrill] = useState<DrilldownData | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    setDrill(null);
+    const cached = DOMAIN_CACHE.get(domain);
+    if (cached) {
+      // already loaded this session — show it readily, no network call
+      setData(cached);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     setData(null);
     setLoading(true);
     setError(null);
@@ -154,8 +171,12 @@ export function DomainDashboard({ domain, onOpenSource }: Props) {
       .then(r => r.json())
       .then(d => {
         if (cancelled) return;
-        if (d?.error) setError(d.error);
-        else setData(d);
+        if (d?.error) {
+          setError(d.error);
+        } else {
+          DOMAIN_CACHE.set(domain, d);
+          setData(d);
+        }
         setLoading(false);
       })
       .catch(e => {
