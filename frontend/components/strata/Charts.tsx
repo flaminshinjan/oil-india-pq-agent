@@ -254,10 +254,13 @@ function BarThreshold({ c }: { c: ChartSpec }) {
    dashed forecast paths + shaded forecast band + threshold
    ============================================================ */
 const PATH_STYLE: Record<string, { color: string; dash: string; marker: 'sq' | 'tri' | 'dot' }> = {
-  up:   { color: C.teal,   dash: '6 3', marker: 'sq' },
-  down: { color: C.red,    dash: '2 3', marker: 'tri' },
-  flat: { color: C.purple, dash: '5 4', marker: 'dot' },
-  hyp:  { color: C.purple, dash: '2 3', marker: 'tri' },
+  up:    { color: C.teal,   dash: '6 3', marker: 'sq' },
+  down:  { color: C.red,    dash: '2 3', marker: 'tri' },
+  flat:  { color: C.purple, dash: '5 4', marker: 'dot' },
+  hyp:   { color: C.purple, dash: '2 3', marker: 'tri' },
+  above: { color: '#2e8b57', dash: '6 4', marker: 'sq' },   // B — above trend
+  trend: { color: C.purple,  dash: '',    marker: 'dot' },  // A — trend continuation (solid)
+  floor: { color: C.red,     dash: '2 3', marker: 'tri' },  // floor — decline
 };
 function Forecast({ c, mode }: { c: ChartSpec; mode: 'line' | 'bars' }) {
   const n = c.labels.length;
@@ -321,6 +324,20 @@ function Forecast({ c, mode }: { c: ChartSpec; mode: 'line' | 'bars' }) {
             </g>
           );
         })}
+        {/* forecast-base hollow marker + annotation */}
+        {c.forecast_base && (() => {
+          const bx = xAt(c.forecast_base.index, n);
+          const by = y(c.forecast_base.value);
+          return (
+            <g>
+              <circle cx={bx} cy={by} r="4" fill="var(--surface)"
+                      stroke={C.ink} strokeWidth="1.4" />
+              <text x={bx - 8} y={by - 12} textAnchor="end" fontSize="8.5" fill={C.axis}>
+                {c.forecast_base.label}
+              </text>
+            </g>
+          );
+        })()}
       </svg>
       <Legend items={[
         ...(mode === 'line' ? [{ name: c.actual.name, color: C.blue }] :

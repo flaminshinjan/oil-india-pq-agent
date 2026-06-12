@@ -118,7 +118,7 @@ const CHART_PANELS: Record<string, { title: string; sub?: string; keys: string[]
     { title: '10-year production trend', sub: 'Crude (MMT) vs natural gas (MMSCM), FY16–FY26', keys: ['crude_gas_trend'] },
     { title: 'State-wise FY26 achievement', sub: 'Crude and gas cumulative actuals vs annual BE target', keys: ['state_crude', 'state_gas'] },
     { title: 'Reserves analysis — RRR & 2P divergence', sub: 'RRR vs the 1.0 threshold; 2P oil falling while 2P gas rises', keys: ['rrr_bars', 'twop_divergence'] },
-    { title: 'Production forecast fan — FY27–28', sub: 'Decline-curve + intervention regression', keys: ['production_forecast'] },
+    { title: 'Crude production forecast — scenarios (FY27–28)', sub: 'Adjusted forecast base · trend, above-trend and floor scenarios', keys: ['production_forecast', 'production_forecast_table'] },
     { title: 'RRR scenario fan — FY26–28', sub: 'Accretion scenarios + arithmetic verification', keys: ['rrr_scenario', 'rrr_verification'] },
     { title: 'Gasification crossover projection', sub: 'Gas share of MMToE output crossing 50%', keys: ['gasification'] },
   ],

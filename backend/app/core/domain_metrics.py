@@ -873,57 +873,70 @@ def _production_charts() -> dict:
                   "unit": "BCM", "values": [r.get("gas_2p_bcm") for r in twop]},
     }
 
-    # 3 — Production forecast fan (FY27–28): sustained vs base-decline
-    wo = _workover_table()
-    wells_by_fy = _drilling_wells_by_fy()
+    # 3 — Crude production forecast — scenarios (FY27–28).
+    # Forecast-only base adjustment: FY26 reported 3.45 MMT includes a 0.10 MMT
+    # one-off external loss; the FORECAST base is 3.55 (= 3.45 + 0.10). Reported
+    # actuals stay 3.45 everywhere they are shown (KPIs, actuals charts/tables) —
+    # the 0.10 adjustment enters forecast computation ONLY.
     crude_by_fy = {r["fy"]: r.get("crude_mmt") for r in rows}
-    fit_fys = [fy for fy in wo.get("fys", [])
-               if crude_by_fy.get(fy) is not None and wo["total"].get(fy)]
-    fit_fys = fit_fys[:-1] if len(fit_fys) > 1 else fit_fys   # drop FY26 plan
-    plan_wo = wo["total"].get(wo["fys"][-1], 307) if wo.get("fys") else 307
-    wo_model = P.workover_production_model(
-        [wo["total"][fy] for fy in fit_fys],
-        [crude_by_fy[fy] for fy in fit_fys],
-        forecast_workovers=float(plan_wo)) if len(fit_fys) >= 3 else None
-    decline = P.exponential_decline([r["fy"] for r in rows],
-                                    [r["crude_mmt"] for r in rows])
-    last_fy = rows[-1]
-    last_crude = last_fy.get("crude_mmt")
-    if wo_model and decline and last_crude:
-        sustained = round(wo_model["fy27_forecast_mmt"], 3)
-        # Floor case: textbook mature-field decline, upper bound 7%/yr, no
-        # intervention. Declared assumption (the fitted base decline is gentler
-        # at ~%s%%/yr; 7%% is the conservative floor per the design pack).
-        FLOOR_D = 0.07
-        red27 = round(last_crude * (1 - FLOOR_D), 2)
-        red28 = round(last_crude * (1 - FLOOR_D) ** 2, 2)
-        trough = min((r["crude_mmt"] for r in rows if r.get("crude_mmt")), default=None)
+    last_crude = rows[-1].get("crude_mmt")            # reported FY26 = 3.45
+    fy21_crude = crude_by_fy.get("2020-21")           # FY21 base = 2.96
+    ONE_OFF = 0.10
+    PACKAGE = 0.16                                     # +30 workovers + 8 dev wells/yr
+    FLOOR_D = 0.07                                     # −7%/yr (upper bound, mature onshore)
+    if last_crude and fy21_crude:
+        base = round(last_crude + ONE_OFF, 2)          # adjusted FY26 base = 3.55
+        cagr = (base / fy21_crude) ** (1 / 5) - 1      # +3.70%/yr on adjusted base
+        a27 = round(base * (1 + cagr), 2)              # A — trend continuation
+        a28 = round(a27 * (1 + cagr), 2)
+        b27 = round(a27 + PACKAGE, 2)                  # B — above trend (+package)
+        b28 = round(a28 + PACKAGE, 2)
+        f27 = round(base * (1 - FLOOR_D), 2)           # Floor — −7%/yr
+        f28 = round(f27 * (1 - FLOOR_D), 2)
+        pad = [None] * (len(labels) - 1)               # paths branch from FY26 base
         charts["production_forecast"] = {
             "type": "forecast_line",
-            "y_unit": "MMT", "y_label": "Crude (MMT)",
+            "y_unit": "MMT", "y_label": "Crude oil (MMT)",
             "labels": labels + ["FY27f", "FY28f"],
-            "actual": {"name": "Actuals", "values":
-                       [r.get("crude_mmt") for r in rows] + [None, None]},
+            "actual": {"name": "Actuals (reported)",
+                       "values": [r.get("crude_mmt") for r in rows] + [None, None]},
             "paths": [
-                {"name": f"Sustained intervention (~{int(plan_wo)} workovers/yr)",
-                 "style": "up",
-                 "values": [None] * (len(labels) - 1) + [last_crude, sustained, sustained]},
-                {"name": "Floor case: −7%/yr, no intervention",
-                 "style": "down",
-                 "values": [None] * (len(labels) - 1) + [last_crude, red27, red28]},
+                {"name": "B — Above trend (+30 WO, +8 dev wells)", "style": "above",
+                 "values": pad + [base, b27, b28]},
+                {"name": f"A — Trend continuation (+{cagr*100:.2f}%/yr)", "style": "trend",
+                 "values": pad + [base, a27, a28]},
+                {"name": "Floor — −7%/yr, no intervention", "style": "floor",
+                 "values": pad + [base, f27, f28]},
             ],
             "forecast_from": len(labels),
-            "threshold": trough,
-            "threshold_label": f"FY21 COVID trough = {trough} MMT" if trough else None,
+            "forecast_base": {"index": len(labels) - 1, "value": base,
+                              "label": f"Forecast base {base} (reported {last_crude} + "
+                                       f"{ONE_OFF} one-off)"},
             "model_note": (
-                f"Model: crude(t) = β₀ + β₁·workovers + β₂·dev-wells + β₃·expl-wells "
-                f"(+ lags). Sustained = FY26 plan held (~{int(plan_wo)} workovers/yr) → "
-                f"OLS crude~workovers R²={wo_model['r2']}, ≈"
-                f"{wo_model['slope_mmt_per_workover']*1000:.1f} kT/workover. "
-                f"Floor = −7%/yr Arps decline on the FY26 base (upper bound of the 5–8% "
-                f"textbook range), no intervention → FY28 {red28} MMT. Shaded gap = "
-                f"production that intervention buys (~{round(sustained-red28,2)} MMT in FY28)."
-            ),
+                f"FY26 reported {last_crude} MMT includes a one-off loss of {ONE_OFF} MMT "
+                f"(external factors). For forecasting only, the FY26 base is adjusted to "
+                f"{base} MMT; reported actuals remain {last_crude} MMT everywhere they are "
+                f"shown. Trend rate = CAGR on the adjusted base = ({base} ÷ {fy21_crude})"
+                f"^(1/5) − 1 = +{cagr*100:.2f}%/yr. B adds an intervention package "
+                f"(+30 workovers, +8 development wells ≈ +{PACKAGE} MMT/yr, from FY21→FY26 "
+                f"marginal productivity ≈ 3,800 t/workover, 5,200 t/dev well). Floor = "
+                f"−7%/yr (upper bound of the 5–8% mature-onshore range), no intervention.")
+        }
+        # Authoritative scenario table (consume these labels/values).
+        charts["production_forecast_table"] = {
+            "type": "table",
+            "title": "Forecast scenarios — FY27 / FY28 (MMT)",
+            "columns": ["Scenario", "FY27 (MMT)", "FY28 (MMT)", "One-line logic"],
+            "rows": [
+                ["A — Trend continuation", a27, a28,
+                 f"+{cagr*100:.2f}%/yr CAGR on adjusted FY26 base of {base}"],
+                ["B — Above trend", b27, b28,
+                 f"A + package: +30 workovers, +8 dev wells (≈ +{PACKAGE}/yr)"],
+                ["Floor", f27, f28, "−7%/yr decline from adjusted base, no intervention"],
+            ],
+            "note": "Actuals FY16–FY26 from 10-yr Excel + FY26 MIS Annexure-V row 15. The "
+                    "0.10 MMT adjustment applies to forecast computation only and never "
+                    "modifies reported FY26 actuals in any KPI, table or actuals chart.",
         }
 
     # 4 — RRR scenario fan (FY26–28) + arithmetic verification table.
