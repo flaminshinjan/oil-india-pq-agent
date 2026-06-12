@@ -13,7 +13,7 @@
 import { useEffect, useState } from 'react';
 
 import { Drilldown, type DrilldownData } from './Drilldown';
-import { Chart, LogicMap, ClaimsTable, type ChartSpec } from './Charts';
+import { Chart, type ChartSpec } from './Charts';
 import type { DomainKey } from './DomainSelector';
 
 interface Kpi {
@@ -311,20 +311,6 @@ export function DomainDashboard({ domain, onOpenSource }: Props) {
               <BreakdownBlock key={i} block={b} />
             ))}
           </div>
-        </section>
-      )}
-
-      {data.charts && (
-        <section className="domain-block">
-          <h2 className="serif domain-section-title">Cross-page predictive logic</h2>
-          <p className="domain-section-sub">
-            How the models join up — and where the booked/hypothetical line sits.
-          </p>
-          <LogicMap />
-          <h3 className="serif domain-section-title" style={{ marginTop: 24 }}>
-            Predictive claims inventory
-          </h3>
-          <ClaimsTable />
         </section>
       )}
 

@@ -176,7 +176,14 @@ def production_metrics() -> dict:
     gas_ach = (totals.get("gas_actual", 0) / totals["gas_target"]
                if totals.get("gas_target") else None)
 
-    rrr_latest = rrr_l.get("rrr") if rrr_l else None
+    rrr_hard = rrr_l.get("rrr") if rrr_l else None   # last disclosed RRR (FY24-25)
+    # FY25-26 RRR is computable now even though year-end 2P isn't disclosed:
+    # RRR = accretion / production-equivalent depletion (crude + gas×0.9 MMToE).
+    fy26 = rows[-1]
+    fy26_dep = ((fy26.get("crude_mmt") or 0) + (fy26.get("gas_mmscm") or 0) / 1000 * 0.9)
+    fy26_acc = fy26.get("rec_mmtoe")
+    rrr_fy26 = round(fy26_acc / fy26_dep, 2) if fy26_acc and fy26_dep else None
+    rrr_val = rrr_fy26 if rrr_fy26 is not None else rrr_hard
 
     # ---- 4 KPIs (per brief) ----
     kpis = [
@@ -196,11 +203,14 @@ def production_metrics() -> dict:
              note=f"{_fmt(totals.get('crude_actual'))} of "
                   f"{_fmt(totals.get('crude_target'))} MMT cum." if totals else ""),
         _kpi("Reserve Replacement Ratio",
-             _fmt(rrr_latest),
+             _fmt(rrr_val),
              "×",
-             f"FY{rrr_l['fy']} · {'below' if (rrr_latest or 0) < 1 else 'above'} 1.0"
-             if rrr_l else "",
-             amber=(rrr_latest is not None and rrr_latest < 1.0)),
+             f"FY26 est. · {'below' if (rrr_val or 0) < 1 else 'above'} 1.0"
+             if rrr_fy26 is not None else
+             (f"FY{rrr_l['fy']} · below 1.0" if rrr_l else ""),
+             amber=(rrr_val is not None and rrr_val < 1.0),
+             note=f"accretion {fy26_acc} ÷ {fy26_dep:.1f} MMToE depletion · "
+                  f"FY24-25 disclosed {rrr_hard}" if rrr_fy26 is not None else ""),
     ]
 
     # ---- breakdown: crude by state (FY26 MTD) ----
@@ -364,8 +374,8 @@ def production_metrics() -> dict:
     highlights = [
         f"FY26 crude {crude_l.get('crude_mmt') if crude_l else '—'} MMT — first decline "
         f"in five years after the FY21→FY25 recovery.",
-        f"RRR at {rrr_latest} (FY{rrr_l['fy'] if rrr_l else '—'}) — third straight year "
-        f"below 1.0; reserves replacement is the structural watch-item.",
+        f"RRR ≈ {rrr_val} (FY26 est.; FY24-25 disclosed {rrr_hard}) — still below 1.0; "
+        f"reserves replacement is the structural watch-item.",
     ]
     if mix:
         highlights.append(
