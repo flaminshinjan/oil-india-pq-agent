@@ -62,6 +62,13 @@ async def _run_chat(req: ChatRequest) -> AsyncIterator[bytes]:
                 piece = _extract_text_from_chunk(chunk)
                 if piece:
                     yield _wire(WireText(delta=piece))
+                else:
+                    # Tool-argument deltas (e.g. a large generate_report payload)
+                    # carry no display text — emit a bare-newline keepalive so the
+                    # streaming connection never goes idle during the long quiet
+                    # stretch while the model writes the report. The frontend NDJSON
+                    # parser skips empty lines, so this renders nothing.
+                    yield b"\n"
 
             elif kind == "on_tool_start":
                 name = event.get("name", "")
