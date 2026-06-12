@@ -7,28 +7,18 @@
  *
  * Sections:
  *   1.  Sticky brand bar  ← always-on CTA to /dashboard
- *   2.  Hero              ← serif headline, animated dot, two CTAs
- *   3.  Live stats strip  ← real numbers from /api/{health,voice/status,sources/list}
- *                            counters animate from 0 → actual value
- *   4.  Brief preview     ← embedded mock of the dashboard's morning brief
- *   5.  Capabilities      ← six-card grid, one per domain agent
- *   6.  Voice showcase    ← speech-bubble flow demonstrating the voice loop
- *   7.  Architecture      ← stack row (LangGraph + Anthropic + Chroma + …)
- *   8.  Bottom CTA band
- *   9.  Footer
+ *   2.  Hero              ← serif headline, animated dot, two CTAs, source thumbs
+ *   3.  Brief preview     ← embedded mock of the dashboard's morning brief
+ *   4.  Capabilities      ← six-card grid, one per domain agent
+ *   5.  Voice showcase    ← speech-bubble flow demonstrating the voice loop
+ *   6.  Bottom CTA band
+ *   7.  Footer
  */
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface Health {
   status?: string;
-  vector_store?: { pq?: number; db?: number };
-}
-
-interface VoiceStatus {
-  available?: boolean;
-  stt?: string | null;
-  tts?: string | null;
 }
 
 const CAPABILITIES = [
@@ -65,35 +55,24 @@ const CAPABILITIES = [
 ];
 
 const SOURCE_THUMBS = [
-  { label: '10-yr Production & Reserves', ext: 'XLSX', kind: 'xl' },
-  { label: 'FY2025-26 MIS', ext: 'XLSX', kind: 'xl' },
-  { label: 'Reserves & Discoveries', ext: 'DOCX', kind: 'doc' },
-  { label: 'Annual Reports · BRSR · ESG', ext: 'PDF', kind: 'pdf' },
-  { label: 'Parliamentary replies', ext: 'PQ', kind: 'pq' },
+  { ext: 'XLSX', label: '10-yr Production & Reserves', kind: 'xl' },
+  { ext: 'XLSX', label: 'FY2025-26 MIS', kind: 'xlb' },
+  { ext: 'DOCX', label: 'Reserves & Discoveries', kind: 'doc' },
+  { ext: 'PDF / PQ', label: 'Annual Reports · BRSR · ESG · Parliamentary replies', kind: 'pdf' },
 ];
 
 export default function Landing() {
   const [health, setHealth] = useState<Health | null>(null);
-  const [voice, setVoice] = useState<VoiceStatus | null>(null);
-  const [sourceCount, setSourceCount] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      fetch('/api/health').then(r => r.json()).catch(() => null),
-      fetch('/api/voice/status').then(r => r.json()).catch(() => null),
-      fetch('/api/sources/list').then(r => r.json()).catch(() => null),
-    ]).then(([h, v, s]) => {
+    fetch('/api/health').then(r => r.json()).catch(() => null).then(h => {
       if (cancelled) return;
       if (h) setHealth(h);
-      if (v) setVoice(v);
-      if (s && typeof s.count === 'number') setSourceCount(s.count);
     });
     return () => { cancelled = true; };
   }, []);
 
-  const pqChunks = health?.vector_store?.pq ?? null;
-  const dbChunks = health?.vector_store?.db ?? null;
   const ready = health?.status === 'ok';
 
   const fyLabel = (() => {
@@ -113,35 +92,21 @@ export default function Landing() {
         <span className="lh-orb lh-orb-c" />
       </div>
 
-      {/* --- Sticky brand bar --- */}
-      <header className="lh-bar">
-        <div className="lh-bar-in">
-          <Link href="/" className="lh-brand">
-            <span className="lh-brand-mark" aria-hidden>
-              <img src="/oil-logo.png" alt="Digby" className="lh-brand-logo" />
-            </span>
-            <span className="lh-brand-text">
-              <span className="lh-brand-name">DIGBY</span>
-              <span className="lh-brand-sub">intelligence OS · Oil India</span>
-            </span>
-          </Link>
-          <nav className="lh-bar-nav">
-            <a className="lh-bar-link" href="#preview">Preview</a>
-            <a className="lh-bar-link" href="#capabilities">Capabilities</a>
-            <a className="lh-bar-link" href="#voice">Voice</a>
-            <Link href="/dashboard" className="lh-cta">
-              Open dashboard <span aria-hidden>→</span>
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      {/* --- Hero (Digboi scene) --- */}
+      {/* --- Hero (Digboi scene) — centered stack --- */}
       <section className="lh-hero">
         <div className="lh-hero-bg" aria-hidden />
         <div className="lh-hero-veil" aria-hidden />
 
         <div className="lh-hero-in">
+          {/* brand */}
+          <div className="lh-brand-stack">
+            <span className="lh-brand-tile" aria-hidden>
+              <img src="/oil-logo.png" alt="Digby" className="lh-brand-tile-logo" />
+            </span>
+            <span className="lh-brand-name">DIGBY</span>
+            <span className="lh-brand-sub">intelligence OS · Oil India</span>
+          </div>
+
           <span className="lh-pill">
             <span className={`lh-dot ${ready ? 'is-ok' : 'is-warn'}`} />
             {ready ? 'Live · ' + fyLabel : 'Booting · ' + fyLabel}
@@ -152,9 +117,18 @@ export default function Landing() {
           <h1 className="serif lh-h1">
             Hi, I’m <span className="lh-h1-accent">Digby</span> —<br />
             named after the town where<br />
-            <span className="lh-h1-accent">Asia’s oil story began.</span>
+            <span className="lh-h1-accent">Asia’s oil story</span> began.
           </h1>
           <p className="lh-subline">How can I help you today?</p>
+
+          <div className="lh-cta-row">
+            <Link href="/dashboard" className="lh-cta lh-cta-primary">
+              Let’s talk <span aria-hidden>→</span>
+            </Link>
+            <Link href="/dashboard" className="lh-cta lh-cta-ghost">
+              What can you do?
+            </Link>
+          </div>
 
           <div className="lh-demo-card">
             <span className="lh-demo-ico" aria-hidden>
@@ -172,58 +146,30 @@ export default function Landing() {
             </p>
           </div>
 
-          <div className="lh-cta-row">
-            <Link href="/dashboard" className="lh-cta lh-cta-primary">
-              Let’s talk <span aria-hidden>→</span>
-            </Link>
-            <Link href="/dashboard" className="lh-cta lh-cta-ghost">
-              What can you do?
-            </Link>
-          </div>
-
-          <div className="lh-trust">
-            <span className="lh-trust-eyebrow">Trusted patterns</span>
-            <span className="lh-trust-bullet">Read-only</span>
-            <span className="lh-trust-bullet">Source-cited</span>
-            <span className="lh-trust-bullet">Streaming first</span>
-            <span className="lh-trust-bullet">Voice native</span>
-          </div>
-        </div>
-
-        {/* source thumbnails — what Digby is grounded in */}
-        <div className="lh-sources">
-          <span className="lh-sources-eyebrow">Grounded in</span>
-          <div className="lh-sources-row">
-            {SOURCE_THUMBS.map(s => (
-              <div className="lh-thumb" key={s.label} title={s.label}>
-                <span className={`lh-thumb-strip lh-thumb-${s.kind}`} />
-                <span className="lh-thumb-ext">{s.ext}</span>
-                <span className="lh-thumb-label">{s.label}</span>
-              </div>
-            ))}
+          {/* source thumbnails — what Digby is grounded in */}
+          <div className="lh-sources">
+            <span className="lh-sources-eyebrow">Grounded in trusted sources</span>
+            <div className="lh-sources-row">
+              {SOURCE_THUMBS.map(s => (
+                <div className={`lh-thumb lh-thumb-${s.kind}`} key={s.label} title={s.label}>
+                  <span className="lh-thumb-ico" aria-hidden>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none"
+                         stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"
+                         strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                      <path d="M14 2v6h6" />
+                      <path d="M8 13h8M8 17h8M8 9h2" />
+                    </svg>
+                  </span>
+                  <span className="lh-thumb-text">
+                    <span className="lh-thumb-ext">{s.ext}</span>
+                    <span className="lh-thumb-label">{s.label}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </section>
-
-      {/* --- Live numbers strip --- */}
-      <section className="lh-stats">
-        <Stat label="PQ replies indexed"
-              value={pqChunks}
-              fallback="—"
-              sub="vector chunks · live count" />
-        <Stat label="Report chunks indexed"
-              value={dbChunks}
-              fallback="—"
-              sub="annual · BRSR · ESG · 10-yr" />
-        <Stat label="Source PDFs bundled"
-              value={sourceCount}
-              fallback="—"
-              sub="cited and preview-able" />
-        <Stat label="Voice pipeline"
-              valueText={voice?.available ? 'Live' : '—'}
-              sub={voice?.available
-                   ? `${voice.stt} → Anthropic → ${voice.tts}`
-                   : 'starting up'} />
       </section>
 
       {/* --- Brief preview --- */}
@@ -359,56 +305,6 @@ export default function Landing() {
 }
 
 /* ---------------- subcomponents ---------------- */
-
-interface StatProps {
-  label: string;
-  value?: number | null;
-  valueText?: string;
-  fallback?: string;
-  sub: string;
-}
-
-function Stat({ label, value, valueText, fallback = '—', sub }: StatProps) {
-  const display = valueText ?? useAnimatedNumber(value ?? null, fallback);
-  return (
-    <div className="lh-stat">
-      <div className="lh-stat-label">{label}</div>
-      <div className="lh-stat-value serif num">{display}</div>
-      <div className="lh-stat-sub">{sub}</div>
-    </div>
-  );
-}
-
-/** Ease a number from 0 to `target` over ~900 ms. Returns the formatted
- *  string each frame for display. */
-function useAnimatedNumber(target: number | null, fallback: string): string {
-  const [shown, setShown] = useState<number | null>(null);
-  const frameRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (target == null) {
-      setShown(null);
-      return;
-    }
-    const start = performance.now();
-    const dur = 900;
-    const from = 0;
-    const to = target;
-    const tick = (t: number) => {
-      const p = Math.min(1, (t - start) / dur);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setShown(Math.round(from + (to - from) * eased));
-      if (p < 1) frameRef.current = requestAnimationFrame(tick);
-    };
-    frameRef.current = requestAnimationFrame(tick);
-    return () => {
-      if (frameRef.current != null) cancelAnimationFrame(frameRef.current);
-    };
-  }, [target]);
-
-  if (shown == null) return fallback;
-  return shown.toLocaleString();
-}
 
 function PreviewCard({ tag, title, body, step, amber }:
   { tag: string; title: string; body: string; step: string; amber?: boolean }) {
