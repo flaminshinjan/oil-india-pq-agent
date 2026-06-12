@@ -107,16 +107,31 @@ def _body_flowables(body: str, st: dict) -> list:
     return out
 
 
+def _cell(v) -> str:
+    """Coerce a cell/header to display text — tolerates the model passing
+    a dict like {'header': 'FY', 'align': 'right'} or {'value': 3.45}."""
+    if v is None:
+        return ""
+    if isinstance(v, dict):
+        for k in ("header", "label", "name", "text", "title", "value"):
+            if k in v and not isinstance(v[k], (dict, list)):
+                return str(v[k])
+        return ""
+    if isinstance(v, (list, tuple)):
+        return " ".join(_cell(x) for x in v)
+    return str(v)
+
+
 def _table_flowable(tbl: dict, st: dict) -> Table | None:
     cols = tbl.get("columns") or []
     rows = tbl.get("rows") or []
     if not cols or not rows:
         return None
-    header = [Paragraph(_inline(c), st["th"]) for c in cols]
+    header = [Paragraph(_inline(_cell(c)), st["th"]) for c in cols]
     data = [header]
     for r in rows:
         cells = list(r) + [""] * (len(cols) - len(r))
-        data.append([Paragraph(_inline("" if c is None else str(c)), st["td"])
+        data.append([Paragraph(_inline(_cell(c)), st["td"])
                      for c in cells[:len(cols)]])
     t = Table(data, repeatRows=1, hAlign="LEFT")
     style = [
