@@ -365,17 +365,70 @@ def compute(
             "result_rounded": round(float(val), 2)}
 
 
+def _facts_to_text(facts) -> str:
+    """Normalise a section's `facts` (str | list[str] | list[dict]) to bullet text."""
+    if not facts:
+        return ""
+    if isinstance(facts, str):
+        return facts.strip()
+    if isinstance(facts, (list, tuple)):
+        lines = []
+        for f in facts:
+            if isinstance(f, dict):
+                lines.append(" — ".join(str(v) for v in f.values() if v is not None))
+            elif f is not None:
+                lines.append(str(f))
+        return "\n".join(f"- {ln}" for ln in lines if ln.strip())
+    return str(facts)
+
+
+_SECTION_EXPANDER_SYS = (
+    "You write ONE section of a formal Oil India Limited (OIL) intelligence "
+    "report for senior executives. Turn the supplied facts into 2–3 sentences "
+    "of tight, factual analyst prose.\n"
+    "ABSOLUTE RULES:\n"
+    "- Use ONLY the facts given. Introduce NO number, date, percentage, name or "
+    "claim that is not present in them. If the facts are thin, write less — never "
+    "pad with invented detail.\n"
+    "- Third person, formal, no marketing adjectives, no hedging. Surface any "
+    "decline plainly; do not editorialise.\n"
+    "- Output the prose ONLY — no heading, no bullet list, no preamble, no "
+    "source line (the table and source note are added separately)."
+)
+
+
+async def _expand_section(llm, heading: str, facts_text: str) -> str:
+    """Expand one section's facts into prose via the fast model. Falls back to
+    the raw facts text on any error so the report never loses content."""
+    from langchain_core.messages import HumanMessage, SystemMessage
+    prompt = f"Report section heading: {heading or '(untitled)'}\n\nFacts:\n{facts_text}"
+    try:
+        resp = await llm.ainvoke([SystemMessage(content=_SECTION_EXPANDER_SYS),
+                                  HumanMessage(content=prompt)])
+        text = resp.content if isinstance(resp.content, str) else \
+            "".join(b.get("text", "") for b in resp.content if isinstance(b, dict))
+        return text.strip() or facts_text
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"[generate_report] section expand failed ({heading!r}): {exc}")
+        return facts_text
+
+
 @tool
-def generate_report(
+async def generate_report(
     title: Annotated[str, "Report title, e.g. 'OIL India — Production & Reserves Report (FY2025-26)'."],
     sections: Annotated[
         list,
         "Ordered list of section objects. Each section is a dict with: "
-        "`heading` (str), `body` (str — paragraphs separated by blank lines; "
-        "use **bold**; lines beginning '- ' become bullets), optional "
-        "`table` ({\"columns\": [str], \"rows\": [[cell,...]]}), and optional "
-        "`note` (str — the source citation for that section). Put any 3+-point "
-        "or multi-year data in a `table`, not prose.",
+        "`heading` (str) and `facts` — the section's raw material as a list of "
+        "terse data points / source-tagged figures (e.g. "
+        "[\"Crude FY2024-25: 3.46 MMT (AR-25)\", \"FY2023-24: 3.13 MMT\", "
+        "\"YoY +10.5% (compute)\"]). The server expands `facts` into polished "
+        "prose IN PARALLEL — so pass facts, do NOT write full paragraphs "
+        "yourself (that is what makes reports slow). Optional per section: "
+        "`table` ({\"columns\": [str], \"rows\": [[cell,...]]}) for multi-year / "
+        "multi-metric data, and `note` (str — the source citation). You MAY "
+        "still pass a ready-written `body` instead of `facts` if you prefer; a "
+        "section with a non-empty `body` is used verbatim and not re-expanded.",
     ],
     subtitle: Annotated[str, "Optional one-line subtitle / status line."] = "",
 ) -> dict:
@@ -387,16 +440,43 @@ def generate_report(
     Build the report FIRST from the data tools (search_oil_data /
     search_corporate_reports) and `compute` — every figure must be real and
     sourced; never invent numbers, and put the source in each section's `note`.
-    Make it substantial: a title, several sections with analysis, and tables
-    for any multi-year or multi-metric data.
+    Pass each section's numbers as terse `facts`; the server fans the sections
+    out to the fast model in parallel to write the prose, which is what keeps
+    generation quick. Put any 3+-point or multi-year data in a `table`.
 
     Returns {report_url, filename, title}. After it returns, tell the user the
     report is ready and that a download button is shown — do NOT paste the raw
     URL or restate the whole report."""
+    import asyncio
+
     try:
+        from langchain_anthropic import ChatAnthropic
+        from ..config import settings
         from ..core.report import build_report_pdf, REPORT_NAMES
-        spec = {"title": title, "subtitle": subtitle,
-                "sections": sections if isinstance(sections, list) else []}
+
+        secs = [s for s in (sections or []) if isinstance(s, dict)]
+
+        # Expand, in parallel, every section that supplied `facts` without a
+        # ready body. Sections with a real `body` pass through untouched.
+        expander = ChatAnthropic(
+            model=settings.anthropic_fast_model,
+            anthropic_api_key=settings.anthropic_api_key,
+            temperature=0,
+            max_tokens=400,
+        )
+
+        async def _resolve(sec: dict) -> dict:
+            body = (sec.get("body") or "").strip()
+            facts_text = _facts_to_text(sec.get("facts"))
+            if not body and facts_text:
+                body = await _expand_section(expander, sec.get("heading", ""), facts_text)
+            out = {k: v for k, v in sec.items() if k != "facts"}
+            out["body"] = body or facts_text
+            return out
+
+        resolved = await asyncio.gather(*[_resolve(s) for s in secs])
+
+        spec = {"title": title, "subtitle": subtitle, "sections": list(resolved)}
         _path, filename, rid = build_report_pdf(spec)
         REPORT_NAMES[rid] = filename
         return {"report_url": f"/api/os/report/{rid}", "filename": filename,
