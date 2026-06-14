@@ -1243,6 +1243,10 @@ def _milestones(page: str | None = None) -> list[dict]:
     rows = _ten_year_table()
     by_fy = {r["fy"]: r for r in rows}
     crude_latest = next((r for r in reversed(rows) if r.get("crude_mmt")), {})
+    # The "highest in a decade" milestone needs the PEAK (audited FY2024-25 =
+    # 3.46), not the latest provisional FY2025-26 row (3.45, which is lower).
+    crude_peak = max((r for r in rows if r.get("crude_mmt")),
+                     key=lambda r: r["crude_mmt"], default={})
     crude_trough = min((r["crude_mmt"] for r in rows if r.get("crude_mmt")), default=None)
     acc_latest = next((r for r in reversed(rows) if r.get("rec_mmtoe")), {})
     wo = _workover_table()
@@ -1252,7 +1256,7 @@ def _milestones(page: str | None = None) -> list[dict]:
 
     items: list[dict] = [
         {
-            "title": f"Highest crude production in a decade — {crude_latest.get('crude_mmt')} MMT",
+            "title": f"Highest crude production in a decade — {crude_peak.get('crude_mmt')} MMT (FY{crude_peak.get('fy', '')})",
             "body": f"Up from the {crude_trough} MMT FY20-21 trough.",
             "source": "10-yr Excel / AR FY24-25", "tags": ["PRODUCTION"],
             "status": "booked",
