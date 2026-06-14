@@ -19,6 +19,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from tqdm import tqdm
 
 from ..config import settings
+from .buckets import apply_bucket_flags, buckets_for_file, classify_text
 from .extractors import extract, iter_documents, Chunk
 from .vectorstore import get_store
 
@@ -207,6 +208,14 @@ def ingest(
             }
             for m in metas:
                 m.update(common)
+
+            # Tag each chunk with topic buckets (multi-label). Structured tables
+            # get a deterministic file→bucket map; narrative chunks (PQs, Annual
+            # Reports, BRSR, ESG) are classified by content.
+            file_buckets = buckets_for_file(path.name, rel.as_posix())
+            for t, m in zip(texts, metas):
+                bks = file_buckets if file_buckets is not None else classify_text(t)
+                apply_bucket_flags(m, bks)
 
             if is_structured:
                 db_texts.extend(texts)

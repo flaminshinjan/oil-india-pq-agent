@@ -255,6 +255,13 @@ These are PEER sources, not a ranked ladder. For any substantive question,
 together in one batch — then reconcile and flag conflicts per §3. Re-search a
 tool with a sharper query if the first pass was weak. There is no fixed call
 cap; just don't loop pointlessly.
+
+Each search is automatically scoped to the query's TOPIC BUCKET (exploration,
+drilling, production, reserves, finance, csr, hr, hse, esg, procurement,
+strategy) — e.g. a CSR query pulls from the CSR-tagged chunks across PQs, ESG
+books, BRSR and the AR. This is transparent and self-correcting: if a scoped
+search is thin it automatically widens to the whole collection, so you never
+need to think about buckets — just search all three tools as above.
 - `search_oil_data` -> Excel/DB tables: XL-PROD, XL-FY26, XL-DRL, DOC-RES. Production, drilling, workover, reserves, FY2025-26 annexures.
 - `search_corporate_reports` -> Annual Reports (AR-21…AR-25) + ESG Data Books + BRSR. Financials, ESG, governance, MD&A framing. Recency-ranked (latest FY first unless you name a year).
 - `search_parliamentary_replies` -> PQ-* official replies. CSR, recruitment, welfare, policy, initiatives, partnerships — and framing. Figures here ARE quotable (cite session/date) and must be cross-checked against the other sources (§3, §7). Most recent session first.
