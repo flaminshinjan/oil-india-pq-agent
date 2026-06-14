@@ -1,13 +1,17 @@
 """Pydantic types for the chat API + the wire protocol used in streaming."""
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
 from pydantic import BaseModel
 
 
 class ChatMessage(BaseModel):
     role: Literal["user", "assistant"]
-    content: str
+    # `content` is normally plain text, but a user turn with attached images is
+    # a list of content blocks (Anthropic/LangChain multimodal format), e.g.
+    # [{"type": "text", "text": "..."},
+    #  {"type": "image_url", "image_url": {"url": "data:image/png;base64,…"}}].
+    content: Union[str, list[dict]]
 
 
 class ChatRequest(BaseModel):

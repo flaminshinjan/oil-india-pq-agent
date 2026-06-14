@@ -6,7 +6,7 @@
 type IconName =
   | 'sliders' | 'chevron' | 'check' | 'pin' | 'mute'
   | 'arrow' | 'send' | 'spark' | 'plus' | 'clock'
-  | 'close' | 'copy' | 'trash' | 'back';
+  | 'close' | 'copy' | 'trash' | 'back' | 'image';
 
 interface IconProps {
   name: IconName;
@@ -51,6 +51,8 @@ export function Icon({ name, size = 16 }: IconProps) {
       return (<svg viewBox="0 0 24 24" {...s}><polyline points="4 7 20 7"/><path d="M9 7V5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5v2"/><path d="M6 7l1 12.5a1.5 1.5 0 0 0 1.5 1.4h7a1.5 1.5 0 0 0 1.5-1.4L18 7"/></svg>);
     case 'back':
       return (<svg viewBox="0 0 24 24" {...s}><line x1="19" y1="12" x2="6" y2="12"/><polyline points="11 7 6 12 11 17"/></svg>);
+    case 'image':
+      return (<svg viewBox="0 0 24 24" {...s}><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5-5L5 21"/></svg>);
     default:
       return null;
   }

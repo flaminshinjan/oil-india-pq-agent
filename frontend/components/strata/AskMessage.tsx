@@ -31,10 +31,20 @@ export function AskMessage({ msg, onOpenSource }: AskMessageProps) {
     return (
       <div className={'msg msg-user' + (msg.via === 'voice' ? ' is-voice' : '')}>
         <div className="msg-col">
-          <div className="msg-bubble">
-            {msg.via === 'voice' && <VoiceBadge />}
-            {msg.text}
-          </div>
+          {msg.images && msg.images.length > 0 && (
+            <div className="msg-images">
+              {msg.images.map((url, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={i} src={url} alt={`attachment ${i + 1}`} className="msg-image" />
+              ))}
+            </div>
+          )}
+          {(msg.text || msg.via === 'voice') && (
+            <div className="msg-bubble">
+              {msg.via === 'voice' && <VoiceBadge />}
+              {msg.text}
+            </div>
+          )}
         </div>
       </div>
     );

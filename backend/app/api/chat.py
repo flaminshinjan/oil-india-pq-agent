@@ -50,6 +50,13 @@ async def _run_chat(req: ChatRequest) -> AsyncIterator[bytes]:
     # payload, so run it on the faster model; everything else stays on the
     # guardrail-strong main model.
     last_user = next((m.content for m in reversed(req.messages) if m.role == "user"), "")
+    # content may be a multimodal list (text + image blocks) — pull the text out
+    # for the report-intent check (and an image attachment is never a report req).
+    if isinstance(last_user, list):
+        last_user = " ".join(
+            b.get("text", "") for b in last_user
+            if isinstance(b, dict) and b.get("type") == "text"
+        )
     graph = get_fast_graph() if is_report_request(last_user) else get_graph()
     initial = {"messages": _to_lc_messages(req)}
     run_config = {"recursion_limit": 40}

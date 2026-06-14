@@ -60,7 +60,10 @@ export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClo
   // the conversation visible in the small panel; "+ New chat" is the
   // only thing that should wipe messages.
   const [collapsedManually, setCollapsedManually] = useState(false);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  // Attached images (data URLs) for the NEXT message the user sends.
+  const [images, setImages] = useState<string[]>([]);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const historyBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -138,6 +141,35 @@ export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClo
     return () => document.removeEventListener('pointerdown', onDown);
   }, [isExpanded]);
 
+  // Auto-grow the composer textarea with its content, up to a max height.
+  useEffect(() => {
+    const ta = inputRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`;
+  }, [q]);
+
+  // Read picked image files into data URLs and stage them for the next send.
+  function addFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const picked = Array.from(files).filter(f => f.type.startsWith('image/'));
+    for (const file of picked) {
+      if (file.size > 5 * 1024 * 1024) continue; // Anthropic caps images at ~5MB
+      const reader = new FileReader();
+      reader.onload = () => {
+        const url = typeof reader.result === 'string' ? reader.result : '';
+        if (url) setImages(prev => (prev.length >= 4 ? prev : [...prev, url]));
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  function submit() {
+    const text = q.trim();
+    if ((!text && images.length === 0) || busy) return;
+    ask(text);
+  }
+
   async function ask(question: string) {
     let id = activeId;
     if (!id) {
@@ -149,10 +181,13 @@ export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClo
     // Any new question re-expands the chat — the user is talking again.
     setCollapsedManually(false);
 
+    const imgs = images;
+    setImages([]);
+
     const historyBefore = messages;
     setMessages(m => [
       ...m,
-      { role: 'user', text: question, ts: Date.now() },
+      { role: 'user', text: question, ts: Date.now(), images: imgs.length ? imgs : undefined },
       { role: 'ai', blocks: [], citations: [], streaming: true, ts: Date.now() },
     ]);
     setBusy(true);
@@ -171,6 +206,7 @@ export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClo
             return [...m.slice(0, -1), applyWireEvent(last, ev)];
           }),
         ctrl.signal,
+        imgs,
       );
     } catch (e: any) {
       setMessages(m => {
@@ -399,17 +435,63 @@ export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClo
         className="chat-pane-form"
         onSubmit={e => {
           e.preventDefault();
-          if (q.trim()) ask(q.trim());
+          submit();
         }}
       >
+        {images.length > 0 && (
+          <div className="ask-attachments">
+            {images.map((url, i) => (
+              <div key={i} className="ask-attachment">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt={`attachment ${i + 1}`} />
+                <button
+                  type="button"
+                  className="ask-attachment-x"
+                  aria-label="Remove image"
+                  onClick={() => setImages(prev => prev.filter((_, j) => j !== i))}
+                >
+                  <Icon name="close" size={11} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="askbar">
           <span className="ask-glyph">
             <Icon name="spark" size={16} />
           </span>
           <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={e => {
+              addFiles(e.target.files);
+              e.target.value = ''; // allow re-picking the same file
+            }}
+          />
+          <button
+            type="button"
+            className="ask-attach"
+            aria-label="Attach image"
+            title="Attach image"
+            disabled={busy || images.length >= 4}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Icon name="image" size={17} />
+          </button>
+          <textarea
             ref={inputRef}
             value={q}
+            rows={1}
             onChange={e => setQ(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                submit();
+              }
+            }}
             placeholder={hasMessages ? 'Ask a follow-up…' : 'Ask anything about the business…'}
             aria-label="Ask anything about the business"
           />
@@ -418,7 +500,7 @@ export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClo
             type="submit"
             className="ask-send"
             aria-label="Ask"
-            disabled={!q.trim() || busy}
+            disabled={(!q.trim() && images.length === 0) || busy}
           >
             <Icon name="send" size={17} />
           </button>

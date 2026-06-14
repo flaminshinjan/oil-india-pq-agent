@@ -7,7 +7,7 @@
  * can reuse the same markdown + tool-chip + citation pill primitives.
  */
 
-import { streamChat } from './api';
+import { streamChat, type ApiContent } from './api';
 import type { AssistantBlock, WireEvent } from './types';
 
 export interface Citation {
@@ -19,7 +19,7 @@ export interface Citation {
 }
 
 export type AskMessage =
-  | { role: 'user'; text: string; ts: number; via?: 'voice' | 'text' }
+  | { role: 'user'; text: string; ts: number; via?: 'voice' | 'text'; images?: string[] }
   | {
       role: 'ai';
       blocks: AssistantBlock[];
@@ -56,7 +56,18 @@ export function loadThreads(): Thread[] {
 export function saveThreads(t: Thread[]): void {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(STORE_KEY, JSON.stringify(t));
+    // Strip attached-image data URLs before persisting — base64 images would
+    // blow the localStorage quota. They stay on the in-memory message for the
+    // current session; reloaded threads just lose the thumbnails.
+    const lean = t.map(th => ({
+      ...th,
+      messages: th.messages.map(m =>
+        m.role === 'user' && m.images?.length
+          ? { ...m, images: undefined }
+          : m,
+      ),
+    }));
+    window.localStorage.setItem(STORE_KEY, JSON.stringify(lean));
   } catch {
     /* quota — user just loses old history */
   }
@@ -81,10 +92,22 @@ export function blocksToText(blocks: AssistantBlock[]): string {
     .join('\n');
 }
 
+/** Build a user turn's content: plain string when text-only, or a multimodal
+ *  block list (text + image_url blocks) when images are attached. */
+function userContent(text: string, images?: string[]): ApiContent {
+  if (!images || images.length === 0) return text;
+  const blocks: Array<Record<string, unknown>> = [];
+  if (text) blocks.push({ type: 'text', text });
+  for (const url of images) {
+    blocks.push({ type: 'image_url', image_url: { url } });
+  }
+  return blocks;
+}
+
 function toApiHistory(history: AskMessage[]) {
   return history.map(m =>
     m.role === 'user'
-      ? { role: 'user' as const, content: m.text }
+      ? { role: 'user' as const, content: userContent(m.text, m.images) }
       : { role: 'assistant' as const, content: blocksToText(m.blocks) },
   );
 }
@@ -101,10 +124,11 @@ export async function askStrata(
   question: string,
   onEvent: (ev: WireEvent) => void,
   signal?: AbortSignal,
+  images?: string[],
 ): Promise<void> {
   const messages = [
     ...toApiHistory(history),
-    { role: 'user' as const, content: question },
+    { role: 'user' as const, content: userContent(question, images) },
   ];
   for await (const ev of streamChat(messages, signal)) {
     onEvent(ev);

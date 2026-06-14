@@ -4,8 +4,12 @@ import type { WireEvent } from './types';
  * Stream the chat endpoint, yielding one parsed WireEvent at a time.
  * Server sends newline-delimited JSON; we buffer partial lines across chunks.
  */
+/** A message's content is either plain text, or a multimodal block list
+ *  (text + image_url blocks) when the user attached images. */
+export type ApiContent = string | Array<Record<string, unknown>>;
+
 export async function* streamChat(
-  history: { role: 'user' | 'assistant'; content: string }[],
+  history: { role: 'user' | 'assistant'; content: ApiContent }[],
   signal?: AbortSignal,
 ): AsyncGenerator<WireEvent> {
   const resp = await fetch('/api/chat', {

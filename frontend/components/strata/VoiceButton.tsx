@@ -71,6 +71,7 @@ export function VoiceButton({ onTranscript, domain }: Props = {}) {
 
   return (
     <button
+      type="button"
       className={
         'voice-btn ' +
         (state.kind === 'live'
