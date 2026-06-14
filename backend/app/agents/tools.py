@@ -409,35 +409,57 @@ def _facts_to_text(facts) -> str:
     return str(facts)
 
 
-_SECTION_EXPANDER_SYS = (
-    "You write ONE section of a formal Oil India Limited (OIL) intelligence "
-    "report for senior executives. Turn the supplied facts into 2–3 sentences "
-    "of tight, factual analyst prose.\n"
-    "ABSOLUTE RULES:\n"
-    "- Use ONLY the facts given. Introduce NO number, date, percentage, name or "
-    "claim that is not present in them. If the facts are thin, write less — never "
-    "pad with invented detail.\n"
-    "- Third person, formal, no marketing adjectives, no hedging. Surface any "
-    "decline plainly; do not editorialise.\n"
-    "- Output the prose ONLY — no heading, no bullet list, no preamble, no "
-    "source line (the table and source note are added separately)."
+_SECTION_BUILDER_SYS = (
+    "You format ONE section of a formal Oil India Limited (OIL) intelligence "
+    "report for senior executives, from the supplied facts.\n"
+    "Return STRICT JSON (no markdown, no code fence) of the shape:\n"
+    '{"body": "<2-4 sentences>", "table": {"columns": ["..."], "rows": [["..."]]} | null}\n'
+    "RULES:\n"
+    "- `body`: tight, factual analyst prose. Third person, formal, no marketing "
+    "adjectives, no hedging; surface declines plainly.\n"
+    "- `table`: build it ONLY when the facts contain multi-year or multi-metric "
+    "numbers worth tabulating (e.g. a value per fiscal year, or target vs actual). "
+    "Otherwise null. Keep ≤5 columns and ≤8 rows; put the period/label in column 1.\n"
+    "- Use ONLY numbers, dates, percentages and names present in the facts. NEVER "
+    "invent or infer a value not given. If facts are thin, write less / table null.\n"
+    "- Output the JSON object and NOTHING else."
 )
 
 
-async def _expand_section(llm, heading: str, facts_text: str) -> str:
-    """Expand one section's facts into prose via the fast model. Falls back to
-    the raw facts text on any error so the report never loses content."""
+def _strip_fence(s: str) -> str:
+    s = (s or "").strip()
+    if s.startswith("```"):
+        s = s.split("\n", 1)[-1] if "\n" in s else s
+        if s.endswith("```"):
+            s = s[: -3]
+        # drop a leading 'json' language tag if present
+        s = s.lstrip()
+        if s[:4].lower() == "json":
+            s = s[4:].lstrip()
+    return s.strip()
+
+
+async def _build_section(llm, heading: str, facts_text: str, want_table: bool) -> dict:
+    """From a section's facts, produce {body, table} in one fast call. Tables
+    auto-build charts downstream. Falls back to the raw facts as body on error."""
+    import json as _json
     from langchain_core.messages import HumanMessage, SystemMessage
-    prompt = f"Report section heading: {heading or '(untitled)'}\n\nFacts:\n{facts_text}"
+    table_hint = "" if want_table else "\nThe section already has a table; set \"table\": null."
+    prompt = f"Section heading: {heading or '(untitled)'}\n\nFacts:\n{facts_text}{table_hint}"
     try:
-        resp = await llm.ainvoke([SystemMessage(content=_SECTION_EXPANDER_SYS),
+        resp = await llm.ainvoke([SystemMessage(content=_SECTION_BUILDER_SYS),
                                   HumanMessage(content=prompt)])
         text = resp.content if isinstance(resp.content, str) else \
             "".join(b.get("text", "") for b in resp.content if isinstance(b, dict))
-        return text.strip() or facts_text
+        data = _json.loads(_strip_fence(text))
+        body = str(data.get("body") or "").strip()
+        tbl = data.get("table")
+        if not (isinstance(tbl, dict) and tbl.get("columns") and tbl.get("rows")):
+            tbl = None
+        return {"body": body or facts_text, "table": tbl}
     except Exception as exc:  # noqa: BLE001
-        logger.warning(f"[generate_report] section expand failed ({heading!r}): {exc}")
-        return facts_text
+        logger.warning(f"[generate_report] section build failed ({heading!r}): {exc}")
+        return {"body": facts_text, "table": None}
 
 
 @tool
@@ -445,19 +467,20 @@ async def generate_report(
     title: Annotated[str, "Report title, e.g. 'OIL India — Production & Reserves Report (FY2025-26)'."],
     sections: Annotated[
         list,
-        "Ordered list of section objects (aim for 6–8 for a 5–6 page report). "
-        "Each section is a dict with: `heading` (str); `facts` — the section's "
-        "raw material as 3–6 terse, source-tagged data points (e.g. "
-        "[\"Crude FY2024-25: 3.46 MMT (AR-25)\", \"FY2023-24: 3.13 MMT\", "
-        "\"YoY +10.5% (compute)\"]) which the server expands into polished prose "
-        "IN PARALLEL (do NOT write paragraphs yourself); `table` "
-        "({\"columns\": [str], \"rows\": [[cell,...]]}) for any multi-year / "
-        "multi-metric data — a CHART is auto-generated from each table; an "
-        "optional explicit `chart` ({\"type\": \"line\"|\"bar\", \"title\": str, "
-        "\"x\": [labels], \"series\": [{\"name\": str, \"data\": [numbers]}]}) to "
-        "force a specific view; and `note` (str — the source citation). You MAY "
-        "pass a ready `body` instead of `facts`; a non-empty `body` is used "
-        "verbatim and not re-expanded.",
+        "Ordered list of 5–6 section objects. Each section is just "
+        "`{heading, facts, note}` — keep it COMPACT, that is what keeps "
+        "generation fast:\n"
+        "  • `heading` (str)\n"
+        "  • `facts` — 4–7 terse, source-tagged data points carrying the real "
+        "numbers, e.g. [\"Crude FY2024-25: 3.46 MMT (AR-25)\", "
+        "\"FY2023-24: 3.36 MMT\", \"FY2022-23: 3.18 MMT\", \"YoY +2.98% (compute)\"]. "
+        "The server turns these into polished prose AND builds the data table "
+        "AND a chart from them, all IN PARALLEL — so do NOT write paragraphs and "
+        "do NOT hand-build tables yourself.\n"
+        "  • `note` (str) — the section's source citation.\n"
+        "Include enough year-by-year / metric-by-metric numbers in `facts` for a "
+        "table+chart to form (a value per FY, or target vs actual). Optionally a "
+        "section may carry an explicit `body`/`table`/`chart` to override.",
     ],
     subtitle: Annotated[str, "Optional one-line subtitle / status line."] = "",
 ) -> dict:
@@ -485,22 +508,32 @@ async def generate_report(
 
         secs = [s for s in (sections or []) if isinstance(s, dict)]
 
-        # Expand, in parallel, every section that supplied `facts` without a
-        # ready body. Sections with a real `body` pass through untouched.
-        expander = ChatAnthropic(
+        # The agent passes terse `facts` per section; we build the prose AND the
+        # table for every section IN PARALLEL on the fast model — so the agent's
+        # own (serial) emit stays small and fast, while the heavy formatting fans
+        # out. Sections that already carry a `body`+`table` pass through.
+        builder = ChatAnthropic(
             model=settings.anthropic_fast_model,
             anthropic_api_key=settings.anthropic_api_key,
             temperature=0,
-            max_tokens=400,
+            max_tokens=700,
         )
 
         async def _resolve(sec: dict) -> dict:
-            body = (sec.get("body") or "").strip()
-            facts_text = _facts_to_text(sec.get("facts"))
-            if not body and facts_text:
-                body = await _expand_section(expander, sec.get("heading", ""), facts_text)
             out = {k: v for k, v in sec.items() if k != "facts"}
-            out["body"] = body or facts_text
+            body = (sec.get("body") or "").strip()
+            has_table = isinstance(sec.get("table"), dict) and (sec["table"].get("rows"))
+            facts_text = _facts_to_text(sec.get("facts"))
+            if body and has_table:
+                return out                       # fully specified already
+            if facts_text:
+                built = await _build_section(builder, sec.get("heading", ""), facts_text,
+                                             want_table=not has_table)
+                out["body"] = body or built["body"]
+                if not has_table and built["table"]:
+                    out["table"] = built["table"]
+            else:
+                out["body"] = body
             return out
 
         resolved = await asyncio.gather(*[_resolve(s) for s in secs])
