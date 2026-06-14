@@ -21,6 +21,7 @@ import { ChatPanel } from '@/components/strata/ChatPanel';
 import { TrajectoryWidget } from '@/components/strata/TrajectoryWidget';
 import { Drilldown, type DrilldownData } from '@/components/strata/Drilldown';
 import { DomainDashboard } from '@/components/strata/DomainDashboard';
+import { ErrorBoundary } from '@/components/strata/ErrorBoundary';
 import { SourcePreview } from '@/components/strata/SourcePreview';
 import { DomainSelector, type DomainKey } from '@/components/strata/DomainSelector';
 import type { BriefCardData } from '@/components/strata/BriefCard';
@@ -168,7 +169,9 @@ export default function StrataHome() {
                 </>
               )
             ) : (
-              <DomainDashboard domain={domain} onOpenSource={setPreviewFile} />
+              <ErrorBoundary resetKey={domain} label={`the ${domain} dashboard`}>
+                <DomainDashboard domain={domain} onOpenSource={setPreviewFile} />
+              </ErrorBoundary>
             )}
           </div>
         </main>
