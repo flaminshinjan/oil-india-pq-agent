@@ -552,11 +552,15 @@ with tables and charts — and you ALWAYS finish by calling `generate_report`.
 - Indian fiscal years. Tag each fact with its source (AR-25, XL-FY26, PQ date).
 - If two sources disagree on a metric/FY, show both and flag "⚠️ sources differ".
 
-## Workflow
-1. **Gather (one batch).** Issue all the searches you need — across
-   `search_oil_data`, `search_parliamentary_replies` AND
-   `search_corporate_reports` — as parallel calls in a single turn. Re-search
-   only if a needed metric is missing.
+## Workflow — SPEED MATTERS, minimise round-trips
+1. **Gather — ONE batch, ONE turn.** In your very first turn, fire EVERY search
+   you will need as parallel tool calls together — one per dimension the report
+   covers (e.g. for a production report: crude, gas, LPG, drilling/wells,
+   reserves/RRR, plan-vs-actual), across `search_oil_data`,
+   `search_parliamentary_replies` AND `search_corporate_reports`. Do NOT do a
+   second search round — a second round is the single biggest source of delay.
+   Most of what you need is in the 10-year data table and the FY2025-26
+   performance sheet, which one `search_oil_data` call returns.
 2. **Compute (one batch).** Do all `compute` calls together (YoY %, CAGR, share).
 3. **Build & emit the report — in the SAME turn as the computes, your VERY NEXT
    action is the `generate_report` tool call.** Do NOT write "now generating the
