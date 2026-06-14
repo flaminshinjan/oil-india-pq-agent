@@ -66,6 +66,21 @@ def _is_synthetic(hit) -> bool:
     return fn in {n.lower() for n in _SYNTHETIC_DB_FILES}
 
 
+def _clean_excerpt(text: str, limit: int = 2600) -> str:
+    """Trim the noise that bloats the LLM's context (and slows every turn):
+    the Excel sheets are mostly runs of empty markdown cells `|  |  |  |`.
+    Collapse those, squeeze blank lines, and cap length — the real numbers
+    (non-empty cells) are preserved."""
+    if not text:
+        return ""
+    t = re.sub(r"\|(?:[ \t]*\|){2,}", "| ", text)   # 3+ consecutive cell borders → one
+    t = re.sub(r"[ \t]{3,}", " ", t)                 # runs of spaces
+    t = re.sub(r"\n{3,}", "\n\n", t)                 # runs of blank lines
+    if len(t) > limit:
+        t = t[:limit].rstrip() + " …[truncated]"
+    return t
+
+
 def _format_hit(hit) -> dict[str, Any]:
     md = hit.metadata or {}
     return {
@@ -77,7 +92,7 @@ def _format_hit(hit) -> dict[str, Any]:
         "buckets":  md.get("buckets", ""),
         "section":  md.get("section", ""),
         "score":    round(float(hit.score), 3),
-        "excerpt":  hit.text,
+        "excerpt":  _clean_excerpt(hit.text),
         "sibling":  bool(md.get("sibling_of")),
     }
 
