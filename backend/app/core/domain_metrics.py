@@ -475,17 +475,20 @@ def _drilling_fy_progress() -> dict:
         if not sn:
             return {}
         ws = wb[sn]
-        # Per inspection — col 5 = target meterage, col 6 = target wells,
-        # col 7 = actual meterage, col 8 = actual wells. Sum data rows
-        # (skip the header rows and the "Total" rows themselves).
+        # Col 5 = target meterage, 6 = target wells, 7 = actual meterage,
+        # 8 = actual wells. Sum the per-BLOCK subtotal rows only — i.e.
+        # "Total <Exploratory|Development> Drilling in <X> Blocks". These are
+        # mutually exclusive and sum to the correct grand total. (Summing the
+        # per-location rows double-counted exploratory to 54/44 vs the true
+        # 27/22; the grand-total / "Grand Total (Expl+Dev)" rows must also be
+        # excluded so we don't double-count.)
         target_m = 0.0
         target_w = 0
         actual_m = 0.0
         actual_w = 0
         for r in range(8, ws.max_row + 1):
-            label = ws.cell(row=r, column=1).value
-            label_s = str(label or "").lower()
-            if label_s.startswith("total") or "grand" in label_s:
+            label_s = str(ws.cell(row=r, column=1).value or "").strip().lower()
+            if not (label_s.startswith("total") and " in " in label_s and "block" in label_s):
                 continue
             tm = _as_float(ws.cell(row=r, column=5).value)
             tw = _as_float(ws.cell(row=r, column=6).value)
@@ -1279,8 +1282,8 @@ def _milestones(page: str | None = None) -> list[dict]:
         },
         {
             "title": "Workover engine at record scale",
-            "body": f"{wo['total'].get(wo_fys[-2]) if len(wo_fys) >= 2 else '—'} ops FY25; "
-                    f"{wo['total'].get(wo_fys[-1]) if wo_fys else '—'} planned FY26.",
+            "body": f"{wo['total'].get(wo_fys[-2]) if len(wo_fys) >= 2 else '—'} ops in FY25, "
+                    f"up to {wo['total'].get(wo_fys[-1]) if wo_fys else '—'} in FY26.",
             "source": "Workover Excel", "tags": ["PRODUCTION"], "status": "booked",
         },
         {
