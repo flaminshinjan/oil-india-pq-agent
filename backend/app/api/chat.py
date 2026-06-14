@@ -11,6 +11,7 @@ from typing import AsyncIterator
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
+from loguru import logger
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from ..agents.pq import get_fast_graph, get_graph, is_report_request
@@ -57,7 +58,20 @@ async def _run_chat(req: ChatRequest) -> AsyncIterator[bytes]:
             b.get("text", "") for b in last_user
             if isinstance(b, dict) and b.get("type") == "text"
         )
-    graph = get_fast_graph() if is_report_request(last_user) else get_graph()
+    is_report = is_report_request(last_user)
+    graph = get_fast_graph() if is_report else get_graph()
+
+    # Log one structured line per question so usage is analysable from `fly logs`
+    # (e.g. most-asked topics). `route_query` gives the topic bucket(s).
+    try:
+        from ..retrieval.buckets import route_query
+        bks = route_query(last_user) if isinstance(last_user, str) else []
+        logger.info(
+            f"[ask] buckets={bks or ['all']} report={is_report} q={(last_user or '')[:200]!r}"
+        )
+    except Exception:  # never let logging break a chat
+        pass
+
     initial = {"messages": _to_lc_messages(req)}
     run_config = {"recursion_limit": 40}
 
