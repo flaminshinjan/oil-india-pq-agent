@@ -31,63 +31,116 @@ function countOf(block: ToolBlock): number {
   return Array.isArray(r) ? r.length : 0;
 }
 
+/** A display group = one chip. Consecutive `compute` calls collapse into a
+ *  single group so a turn with 12 calculations shows one "compute ×12" chip
+ *  instead of twelve "compute 0" chips. */
+type ToolGroup = { key: string; name: string; blocks: ToolBlock[] };
+
+function groupTools(tools: ToolBlock[]): ToolGroup[] {
+  const groups: ToolGroup[] = [];
+  for (const t of tools) {
+    const last = groups[groups.length - 1];
+    if (t.name === 'compute' && last && last.name === 'compute') {
+      last.blocks.push(t);
+    } else {
+      groups.push({ key: t.id, name: t.name, blocks: [t] });
+    }
+  }
+  return groups;
+}
+
 /**
  * Row of compact tool chips, with one expanded detail panel at a time.
  * Receives a group of consecutive tool blocks from Message.tsx.
  */
 export function ToolRow({ tools }: { tools: ToolBlock[] }) {
   const [openId, setOpenId] = useState<string | null>(null);
-  const open = tools.find(t => t.id === openId) ?? null;
+  const groups = groupTools(tools);
+  const open = groups.find(g => g.key === openId) ?? null;
 
   return (
     <div className="tool-row">
       <div className="tool-chips">
-        {tools.map(t => (
+        {groups.map(g => (
           <ToolChip
-            key={t.id}
-            block={t}
-            active={t.id === openId}
-            onToggle={() => setOpenId(openId === t.id ? null : t.id)}
+            key={g.key}
+            group={g}
+            active={g.key === openId}
+            onToggle={() => setOpenId(openId === g.key ? null : g.key)}
           />
         ))}
       </div>
-      {open && <ToolDetail block={open} />}
+      {open && <ToolDetail group={open} />}
     </div>
   );
 }
 
 function ToolChip({
-  block,
+  group,
   active,
   onToggle,
 }: {
-  block: ToolBlock;
+  group: ToolGroup;
   active: boolean;
   onToggle: () => void;
 }) {
-  const running = block.status === 'running';
-  const err = block.status === 'error';
-  const count = countOf(block);
-  const label = shortName(block.name);
+  const isCompute = group.name === 'compute';
+  // Any block still running / any errored bubbles up to the chip.
+  const running = group.blocks.some(b => b.status === 'running');
+  const err = group.blocks.some(b => b.status === 'error');
+  const label = shortName(group.name);
+  // compute → number of calculations; search → result count of the (single) call.
+  const count = isCompute ? group.blocks.length : countOf(group.blocks[0]);
+  const countText = isCompute ? `×${count}` : String(count);
+  const showCount = !running && (isCompute || count > 0);
 
   return (
     <button
       className={`tool-chip ${active ? 'tool-chip-active' : ''} ${running ? 'tool-chip-running' : ''} ${err ? 'tool-chip-error' : ''}`}
       onClick={() => !running && onToggle()}
-      title={running ? 'Searching…' : `${label} · ${count} result${count === 1 ? '' : 's'}`}
+      title={
+        running ? 'Working…'
+        : isCompute ? `${count} calculation${count === 1 ? '' : 's'}`
+        : `${label} · ${count} result${count === 1 ? '' : 's'}`
+      }
     >
       <span className="tool-chip-icon">
-        {running ? <Spinner /> : err ? '!' : <SearchIcon />}
+        {running ? <Spinner /> : err ? '!' : isCompute ? <ComputeIcon /> : <SearchIcon />}
       </span>
       <span className="tool-chip-name">{label}</span>
-      {!running && (
-        <span className="tool-chip-count">{count}</span>
+      {showCount && (
+        <span className="tool-chip-count">{countText}</span>
       )}
     </button>
   );
 }
 
-function ToolDetail({ block }: { block: ToolBlock }) {
+function ToolDetail({ group }: { group: ToolGroup }) {
+  // compute group → show every expression = result
+  if (group.name === 'compute') {
+    return (
+      <div className="tool-detail">
+        <div className="tool-computes">
+          {group.blocks.map((b, i) => {
+            const expr = (b.args?.expression as string) || '';
+            const res = b.result?.result_rounded ?? b.result?.result;
+            const e = b.status === 'error' ? (b.result?.error as string) : null;
+            return (
+              <div className="tool-compute-row" key={i}>
+                <code className="tool-compute-expr">{expr}</code>
+                <span className="tool-compute-eq">=</span>
+                <span className={`tool-compute-res ${e ? 'tool-compute-err' : ''}`}>
+                  {e ? e : String(res ?? '—')}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  const block = group.blocks[0];
   const results: Hit[] = Array.isArray(block.result?.results)
     ? (block.result!.results as Hit[])
     : [];
@@ -158,6 +211,20 @@ function SearchIcon() {
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="11" cy="11" r="7" />
       <path d="m20 20-3.5-3.5" />
+    </svg>
+  );
+}
+
+function ComputeIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="3" width="16" height="18" rx="2.5" />
+      <line x1="8" y1="7" x2="16" y2="7" />
+      <line x1="8" y1="12" x2="8" y2="12" />
+      <line x1="12" y1="12" x2="12" y2="12" />
+      <line x1="16" y1="12" x2="16" y2="12" />
+      <line x1="8" y1="16" x2="8" y2="16" />
+      <line x1="12" y1="16" x2="12" y2="16" />
     </svg>
   );
 }
