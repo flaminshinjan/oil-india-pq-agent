@@ -16,10 +16,10 @@ class Settings:
     # Faster model for short helper calls (e.g. the per-section prose expander
     # in report generation, which runs many small calls in parallel).
     anthropic_fast_model: str = os.getenv("ANTHROPIC_FAST_MODEL", "claude-haiku-4-5-20251001")
-    # Model that DRAFTS reports (the generate_report turn). A detailed, charted
-    # 5–6 page report needs a strong model — Haiku narrated instead of calling
-    # the tool and produced thin output. Default to the main (Sonnet) model.
-    anthropic_report_model: str = os.getenv("ANTHROPIC_REPORT_MODEL", "claude-sonnet-4-6")
+    # Model that DRAFTS reports (the generate_report turn). Haiku: reliably calls
+    # the tool and emits the multi-section payload ~3x faster than Sonnet (whose
+    # serial emit caused a ~60s silent "stuck after compute" stretch).
+    anthropic_report_model: str = os.getenv("ANTHROPIC_REPORT_MODEL", "claude-haiku-4-5-20251001")
 
     # `data_root` is the SOURCE CORPUS — walked by the ingest CLI to feed
     # Chroma. Locally this is the full Parliamentary Replies tree. In prod

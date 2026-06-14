@@ -18,9 +18,12 @@ primary_region = "bom"
   ANTHROPIC_MODEL = "claude-sonnet-4-6"
   # Haiku powers small parallel helper calls (per-section prose expansion).
   ANTHROPIC_FAST_MODEL = "claude-haiku-4-5-20251001"
-  # Reports are DRAFTED by Sonnet — a detailed charted 5-6 page report needs a
-  # strong model (Haiku narrated instead of calling the tool, thin output).
-  ANTHROPIC_REPORT_MODEL = "claude-sonnet-4-6"
+  # Reports are DRAFTED by Haiku: it reliably calls generate_report (the earlier
+  # "narrated instead" failure was a prompt-injection bug, since fixed) and emits
+  # the multi-section payload ~3x faster than Sonnet — Sonnet's serial emit left
+  # a ~60s silent "stuck after compute" stretch. Section prose/tables are built
+  # in parallel (also Haiku); charts/data are deterministic.
+  ANTHROPIC_REPORT_MODEL = "claude-haiku-4-5-20251001"
 
 [http_service]
   internal_port = 8080
