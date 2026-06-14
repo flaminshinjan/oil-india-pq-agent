@@ -806,14 +806,15 @@
 .cit {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   background: var(--accent-tint);
   color: var(--accent);
   border: 0.5px solid transparent;
-  padding: 2px 9px;
+  padding: 2px 4px 2px 9px;
   border-radius: 999px;
   font-size: 10.5px;
   font-weight: var(--w-med);
-  max-width: 160px;
+  max-width: 280px;
   transition: border-color .12s;
   cursor: default;
 }
@@ -823,6 +824,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 150px;
+}
+/* topic-bucket tags shown on each cited source */
+.cit-buckets { display: inline-flex; gap: 4px; flex: none; }
+.cit-bucket {
+  font-size: 8.5px; font-weight: var(--w-med); letter-spacing: .03em;
+  text-transform: uppercase; padding: 1px 6px; border-radius: 999px;
+  background: color-mix(in oklab, var(--accent) 20%, var(--surface));
+  color: var(--accent); white-space: nowrap;
 }
 .cit.cit-more {
   background: var(--surface-2);

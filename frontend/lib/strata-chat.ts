@@ -15,6 +15,7 @@ export interface Citation {
   source: string;
   section?: string;
   session?: string;
+  buckets?: string;
   tool?: string;
 }
 

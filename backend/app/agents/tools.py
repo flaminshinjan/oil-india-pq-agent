@@ -82,18 +82,21 @@ def _format_hit(hit) -> dict[str, Any]:
     }
 
 
-def _routed_search(collection: str, query: str, *, k: int, max_total: int):
-    """Search `collection`, scoped to the query's topic bucket(s) when routing
-    is confident, with a SOFT fallback: if the bucket-scoped search is empty or
-    weak (top score < 0.45) we re-run unscoped. This keeps topical precision
-    without ever hiding a source — bucketing scopes, it never blocks."""
+def _routed_search(collection: str, query: str, *, k: int, max_total: int, corpus: str | None = None):
+    """Search `collection`, restricted to `corpus` ("pq" replies / "report"
+    AR-BRSR-ESG) at query time, and scoped to the query's topic bucket(s) when
+    routing is confident — with a SOFT fallback: if the bucket scope leaves too
+    few results (or weak ones) we re-run WITHOUT the bucket but KEEP the corpus.
+    So each tool always pulls the best matches from its own corpus (a PQ search
+    truly searches PQs), and buckets only sharpen — they never starve a source."""
     from ..retrieval.buckets import route_query
 
     store = get_store()
     cb = route_query(query)
-    raw = store.search(collection, query, k=k, with_siblings=True, max_total=max_total, buckets=cb)
-    if cb and (not raw or raw[0].score < 0.45):
-        raw = store.search(collection, query, k=k, with_siblings=True, max_total=max_total, buckets=None)
+    raw = store.search(collection, query, k=k, with_siblings=True, max_total=max_total, buckets=cb, corpus=corpus)
+    primary = [h for h in raw if not (h.metadata or {}).get("sibling_of")]
+    if cb and (len(primary) < k or (raw and raw[0].score < 0.45)):
+        raw = store.search(collection, query, k=k, with_siblings=True, max_total=max_total, buckets=None, corpus=corpus)
     return raw
 
 
@@ -139,7 +142,7 @@ def search_parliamentary_replies(
     most-recent session bubbles up first.
     """
     k = max(1, min(int(k or 5), 10))
-    raw = _routed_search("pq", query, k=k * 2, max_total=14)
+    raw = _routed_search("pq", query, k=k * 2, max_total=14, corpus="pq")
     pq_hits = [h for h in raw if (h.metadata or {}).get("source", "").startswith("PQs/")]
     # Boost recent sessions: session strings sort alphabetically with
     # "WINTER 2025" / "BUDGET SESSION 2026" near the top; we re-sort by
@@ -182,8 +185,9 @@ def search_corporate_reports(
     # Fetch a wider candidate pool than we return, so the recency re-rank has
     # multiple fiscal years to choose from (raw embedding scores alone tend to
     # bury the latest Annual Report behind older ones for financial queries).
-    # Bucket-scoped with a soft fallback (same policy as _routed_search).
-    raw = _routed_search("pq", query, k=k * 4, max_total=k * 4 + 6)
+    # Restricted to the report corpus (AR/BRSR/ESG) at query time + bucket-scoped
+    # with a soft fallback (same policy as _routed_search).
+    raw = _routed_search("pq", query, k=k * 4, max_total=k * 4 + 6, corpus="report")
     corp_hits = [h for h in raw if not (h.metadata or {}).get("source", "").startswith("PQs/")]
 
     asked = _explicit_fys(query)

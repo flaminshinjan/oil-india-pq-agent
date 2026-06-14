@@ -166,9 +166,16 @@ function Citations({ citations, onOpenSource }: { citations: Citation[]; onOpenS
           className="cit cit-button"
           type="button"
           onClick={() => onOpenSource?.(c.filename)}
-          title={`${c.filename}${c.section ? ' · ' + c.section : ''}\nClick to preview`}
+          title={`${c.filename}${c.buckets ? ' · ' + c.buckets : ''}${c.section ? ' · ' + c.section : ''}\nClick to preview`}
         >
           <span className="cit-name">{c.filename}</span>
+          {c.buckets && (
+            <span className="cit-buckets">
+              {c.buckets.split(',').filter(Boolean).slice(0, 2).map(b => (
+                <span key={b} className="cit-bucket">{b}</span>
+              ))}
+            </span>
+          )}
         </button>
       ))}
       {hidden > 0 && (

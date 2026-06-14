@@ -104,6 +104,7 @@ class VectorStore:
         with_siblings: bool = False,
         max_total: int = 12,
         buckets: list[str] | None = None,
+        corpus: str | None = None,
     ) -> list[SearchHit]:
         """Embedding search. When `with_siblings=True`, also pull other table_*
         and sheet:* chunks from the same source as any top hit — this catches
@@ -112,14 +113,17 @@ class VectorStore:
         `table_3`).
 
         When `buckets` is given, the search is scoped to chunks tagged with any
-        of those topic buckets (the `b_<bucket>` metadata flags). Pass None (or
-        an empty list) to search the whole collection.
+        of those topic buckets (the `b_<bucket>` metadata flags). `corpus`
+        ("pq" = parliamentary replies, "report" = Annual Report/BRSR/ESG)
+        restricts to that document family AT QUERY TIME so e.g. a PQ search
+        isn't crowded out of the top-k by report chunks before filtering. Pass
+        None to search the whole collection.
         """
         coll = self.pq if collection_name == "pq" else self.db
         if coll.count() == 0:
             return []
         emb = self.embed([query])[0]
-        where = self._bucket_where(buckets)
+        where = self._build_where(buckets, corpus)
         res = coll.query(query_embeddings=[emb], n_results=k, where=where)
         hits: list[SearchHit] = []
         docs = res.get("documents", [[]])[0]
@@ -135,12 +139,20 @@ class VectorStore:
         return self._expand_with_siblings(coll, hits, max_total=max_total)
 
     @staticmethod
-    def _bucket_where(buckets: list[str] | None):
-        """Chroma `where` filter matching chunks tagged with any of `buckets`."""
-        if not buckets:
+    def _build_where(buckets: list[str] | None, corpus: str | None = None):
+        """Chroma `where` filter combining an optional corpus restriction
+        (report_kind) with an optional bucket scope ($or over b_<bucket>)."""
+        clauses: list[dict] = []
+        if corpus == "pq":
+            clauses.append({"report_kind": ""})                 # PQ replies
+        elif corpus == "report":
+            clauses.append({"report_kind": {"$ne": ""}})        # AR / BRSR / ESG
+        if buckets:
+            flags = [{f"b_{b}": True} for b in buckets]
+            clauses.append(flags[0] if len(flags) == 1 else {"$or": flags})
+        if not clauses:
             return None
-        flags = [{f"b_{b}": True} for b in buckets]
-        return flags[0] if len(flags) == 1 else {"$or": flags}
+        return clauses[0] if len(clauses) == 1 else {"$and": clauses}
 
     @staticmethod
     def _is_data_section(section: str) -> bool:

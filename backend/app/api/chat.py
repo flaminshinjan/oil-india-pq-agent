@@ -123,6 +123,7 @@ async def _run_chat(req: ChatRequest) -> AsyncIterator[bytes]:
                             "source": r.get("source"),
                             "section": r.get("section"),
                             "session": r.get("session"),
+                            "buckets": r.get("buckets"),
                             "tool": name,
                         })
                 yield _wire(WireToolResult(id=run_id, name=name, result=result))
