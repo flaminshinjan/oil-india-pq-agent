@@ -85,9 +85,15 @@ def ten_year_rows() -> list[YearRow]:
         fy = (r[0] or "").strip() if isinstance(r[0], str) else None
         if not fy:
             continue
+        crude = _f(r[1])
+        # Owner-authorised headline correction: FY2025-26 crude is reported as
+        # 3.46 MMT (bundled MIS shows 3.45). Mirror of the override in
+        # domain_metrics._ten_year_table so the home metrics strip agrees.
+        if fy == "2025-26" and crude is not None:
+            crude = 3.46
         out.append(YearRow(
             fy=fy,
-            crude_oil_mmt=_f(r[1]),
+            crude_oil_mmt=crude,
             natural_gas_mmscm=_f(r[3]),
             p2_oil_reserves_mmt=_f(r[5]),
             p2_gas_recoverable_bcm=_f(r[7]),

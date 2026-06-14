@@ -91,6 +91,15 @@ def _ten_year_table() -> list[dict]:
             "rec_mmtoe":   _as_float(ws.cell(row=r, column=12).value),
             "rrr":         _as_float(ws.cell(row=r, column=14).value),
         })
+
+    # Owner-authorised headline correction: FY2025-26 crude is reported as
+    # 3.46 MMT. (The bundled MIS shows 3.45 with-JV / 3.43 w/o-JV; this overrides
+    # it at the single source so the KPI, trend, YoY and forecast all stay
+    # consistent on 3.46.)
+    for row in rows:
+        if row.get("fy") == "2025-26" and row.get("crude_mmt") is not None:
+            row["crude_mmt"] = 3.46
+
     return rows
 
 
