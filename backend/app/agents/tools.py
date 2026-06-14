@@ -1,19 +1,21 @@
 """Tools exposed to the LangGraph agent.
 
-The chat agent uses a strict 4-step source hierarchy when answering:
+The chat agent searches ALL internal sources for every substantive question —
+there is no source hierarchy or prioritisation. It then reconciles the results
+and flags any value that disagrees across sources:
 
-    1. `search_oil_data`              — DB/ Excel tables (production, drilling,
+    - `search_oil_data`              — DB/ Excel tables (production, drilling,
                                          workover, reserves, FY annexures).
-                                         Most authoritative for numeric facts.
                                          Synthetic JSON feeds (workforce,
                                          procurement, PPE) are EXCLUDED so the
                                          chat never cites a made-up table.
-    2. `search_parliamentary_replies` — Past Lok Sabha / Rajya Sabha PQ replies
-                                         (most recent session preferred).
-    3. `search_corporate_reports`     — Annual reports, BRSR, ESG Data Books.
-    4. `search_web`                   — Tavily web search.  LAST RESORT.
-                                         Results MUST be marked "from public
-                                         web" in the answer.
+    - `search_parliamentary_replies` — Official Lok Sabha / Rajya Sabha PQ
+                                         replies (most recent session first).
+                                         Figures here are usable and citable.
+    - `search_corporate_reports`     — Annual reports, BRSR, ESG Data Books
+                                         (recency-ranked, latest FY first).
+    - `search_web`                   — Tavily web search; external supplement,
+                                         marked "from public web" in the answer.
 
 Each search tool returns a small JSON-serialisable dict that the LLM can quote
 back in its answer. Citations come back as `[file: <name>, section: <section>]`
@@ -84,15 +86,15 @@ def search_oil_data(
     query: Annotated[str, "Natural-language search for numeric / FY-wise facts (production, drilling, reserves, performance)."],
     k:     Annotated[int, "Number of factual excerpts to retrieve (1–10)."] = 5,
 ) -> dict:
-    """**STEP 1 — PREFERRED FIRST CALL.**  Searches OIL's structured DB
-    tables: production, gas, reserves, RRR, wells, drilling, workover,
-    and the FY 2025-26 performance annexures.
+    """Searches OIL's structured DB tables: production, gas, reserves, RRR,
+    wells, drilling, workover, and the FY 2025-26 performance annexures.
 
     Synthetic / placeholder JSON feeds are filtered out — every result
     you get back is from OIL's own ledger of operational disclosures.
 
-    Use this for any numeric or trend claim. Only fall back to the
-    other tools if this returns weak / no relevant hits (top score < ~0.45).
+    One of three PEER search tools — call it alongside
+    `search_parliamentary_replies` and `search_corporate_reports` for any
+    substantive question, then reconcile and flag any cross-source mismatch.
     """
     k = max(1, min(int(k or 5), 10))
     raw = get_store().search("db", query, k=k * 2, with_siblings=True, max_total=14)
@@ -110,12 +112,15 @@ def search_parliamentary_replies(
     query: Annotated[str, "Natural-language search across past parliamentary Q&A replies."],
     k:     Annotated[int, "Number of PQ excerpts to retrieve (1–10)."] = 5,
 ) -> dict:
-    """**STEP 2 — try AFTER `search_oil_data`.**  Past Lok Sabha and
-    Rajya Sabha question replies (Budget Session 2026 → previous sessions).
-    Use for: precedent phrasing, qualitative initiatives, partnerships,
-    CSR / recruitment / alternative-energy questions.
+    """Official Lok Sabha and Rajya Sabha question replies (Budget Session
+    2026 → previous sessions). The richest, most on-point source for CSR,
+    recruitment, welfare, partnerships, alternative-energy and policy /
+    initiative questions — search it FIRST for those (alongside the others).
+    Figures here ARE usable and citable (cite the reply's session/date); always
+    cross-check them against the other sources and flag any mismatch.
 
-    Ranked so the most-recent session bubbles up first.
+    One of three PEER search tools — no source ladder. Ranked so the
+    most-recent session bubbles up first.
     """
     k = max(1, min(int(k or 5), 10))
     raw = get_store().search("pq", query, k=k * 2, with_siblings=True, max_total=14)
@@ -142,13 +147,14 @@ def search_corporate_reports(
     query: Annotated[str, "Natural-language search across Annual Reports, BRSR and ESG Data Books."],
     k:     Annotated[int, "Number of excerpts to retrieve (1–10)."] = 5,
 ) -> dict:
-    """**STEP 3 — try AFTER parliamentary replies.**  Annual Reports,
-    BRSR (Business Responsibility & Sustainability) reports and ESG Data
-    Books (FY 2020-21 → FY 2024-25). Use for: capex, sustainability
-    metrics, LTIFR, governance, chairman-statement framing, diversity
-    figures, training spend.
+    """Annual Reports, BRSR (Business Responsibility & Sustainability) reports
+    and ESG Data Books (FY 2020-21 → FY 2024-25). Use for: financials, capex,
+    sustainability metrics, LTIFR, governance, chairman-statement framing,
+    diversity figures, training spend.
 
-    The latest BRSR / ESG numbers supersede older PQ snapshots.
+    One of three PEER search tools — call it alongside `search_oil_data` and
+    `search_parliamentary_replies` for any substantive question, then reconcile
+    and flag any cross-source mismatch.
 
     Results are recency-ranked: when the query does not pin a specific
     fiscal year, the **most recent** report (e.g. the FY2024-25 Annual
@@ -193,10 +199,10 @@ def search_web(
     query: Annotated[str, "Natural-language web search query."],
     k:     Annotated[int, "Number of web results to retrieve (1–5)."] = 4,
 ) -> dict:
-    """**STEP 4 — LAST RESORT.**  Public web search via Tavily.  Use ONLY
-    when steps 1-3 have failed to surface the fact (e.g. very recent
-    industry news, third-party analysis, public-government releases not
-    yet in the corpus).
+    """Public web search via Tavily — an EXTERNAL supplement, outside OIL's
+    own corpus. Use for context the internal sources don't hold (very recent
+    industry news, third-party analysis, public-government releases not yet in
+    the corpus).
 
     **Mandatory in your reply:** flag every web-sourced sentence with
     "(per public web; outside OIL's internal corpus)" and list the URL in
