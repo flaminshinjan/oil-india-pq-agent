@@ -369,15 +369,7 @@ def build_report_pdf(spec: dict) -> tuple[Path, str, str]:
             if t is not None:
                 flow.append(Spacer(1, 1.5 * mm))
                 flow.append(t)
-        # Chart: explicit spec, else auto-generated from a numeric table.
-        chart = sec.get("chart")
-        if not chart and sec.get("table"):
-            chart = _auto_chart_from_table(sec["table"])
-        if chart:
-            drawing = _chart_flowable(chart)
-            if drawing is not None:
-                flow.append(Spacer(1, 2.5 * mm))
-                flow.append(drawing)
+        # Charts intentionally omitted — tables + text only, per request.
         if sec.get("note"):
             flow.append(Paragraph("Source / note: " + _inline(sec["note"]), st["note"]))
         flow.append(Spacer(1, 2 * mm))

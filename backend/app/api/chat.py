@@ -84,6 +84,14 @@ async def _run_chat(req: ChatRequest) -> AsyncIterator[bytes]:
             kind = event.get("event")
 
             if kind == "on_chat_model_stream":
+                # Only forward the MAIN agent's text. The generate_report tool
+                # fans out parallel section-builder LLM calls; those run inside
+                # the "tools" node and their JSON token streams would otherwise
+                # leak into the chat as interleaved garbage. Skip anything not
+                # from the top-level "llm" node.
+                node = (event.get("metadata") or {}).get("langgraph_node")
+                if node and node != "llm":
+                    continue
                 chunk = event["data"].get("chunk")
                 if chunk is None:
                     continue
