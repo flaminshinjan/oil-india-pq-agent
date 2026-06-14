@@ -16,9 +16,11 @@ primary_region = "bom"
   # workload; the draft-reply-vs-PDF and source-tier guardrails hold more
   # reliably on it, at the cost of somewhat slower streaming.
   ANTHROPIC_MODEL = "claude-sonnet-4-6"
-  # PDF/report generation runs on this faster model (layout of retrieved
-  # facts + large streamed payload); chat/drafting stays on the model above.
+  # Haiku powers small parallel helper calls (per-section prose expansion).
   ANTHROPIC_FAST_MODEL = "claude-haiku-4-5-20251001"
+  # Reports are DRAFTED by Sonnet — a detailed charted 5-6 page report needs a
+  # strong model (Haiku narrated instead of calling the tool, thin output).
+  ANTHROPIC_REPORT_MODEL = "claude-sonnet-4-6"
 
 [http_service]
   internal_port = 8080

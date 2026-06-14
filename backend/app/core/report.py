@@ -29,12 +29,17 @@ from reportlab.platypus import (
     Image,
     ListFlowable,
     ListItem,
+    PageBreak,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
     Table,
     TableStyle,
 )
+from reportlab.graphics.shapes import Drawing, String
+from reportlab.graphics.charts.barcharts import VerticalBarChart
+from reportlab.graphics.charts.linecharts import HorizontalLineChart
+from reportlab.graphics.charts.legends import Legend
 
 IST = ZoneInfo("Asia/Kolkata")
 _ASSET_DIR = Path(__file__).resolve().parents[1] / "assets"
@@ -53,6 +58,14 @@ _RED = colors.HexColor("#c0492f")
 _LINE = colors.HexColor("#e5e7eb")
 _HEADBG = colors.HexColor("#1f3a5f")
 _ZEBRA = colors.HexColor("#f6f7f9")
+# Chart series palette (Digby brand-aligned).
+_CHART_COLORS = [
+    colors.HexColor("#1f8a70"),  # teal
+    colors.HexColor("#1f3a5f"),  # navy
+    colors.HexColor("#c0492f"),  # rust
+    colors.HexColor("#d9a441"),  # gold
+    colors.HexColor("#5b8def"),  # blue
+]
 
 
 def _styles():
@@ -150,6 +163,128 @@ def _table_flowable(tbl: dict, st: dict) -> Table | None:
     return t
 
 
+def _to_num(v):
+    """Best-effort numeric from a cell (handles '3,186', '12.5%', '₹ 129.53')."""
+    if isinstance(v, (int, float)):
+        return float(v)
+    if isinstance(v, dict):
+        v = _cell(v)
+    s = re.sub(r"[^0-9.\-]", "", str(v or ""))
+    if s in ("", "-", ".", "-."):
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+def _chart_drawing(chart: dict, width: float = 470, height: float = 210):
+    """Render a {type:'bar'|'line', title, x:[...], series:[{name,data:[...]}]}
+    chart with reportlab.graphics. Returns a Drawing or None."""
+    if not isinstance(chart, dict):
+        return None
+    ctype = (chart.get("type") or "bar").lower()
+    labels = [_cell(x) for x in (chart.get("x") or chart.get("labels") or [])]
+    series = chart.get("series") or []
+    if not labels or not series:
+        return None
+    # Coerce series data to floats aligned to labels; drop empty series.
+    data = []
+    names = []
+    for s in series:
+        if not isinstance(s, dict):
+            continue
+        row = [_to_num(v) for v in (s.get("data") or [])]
+        row = (row + [None] * len(labels))[:len(labels)]
+        if any(v is not None for v in row):
+            data.append([v if v is not None else 0 for v in row])
+            names.append(_cell(s.get("name", "")))
+    if not data:
+        return None
+
+    d = Drawing(width, height)
+    title = chart.get("title")
+    top = height - 16
+    if title:
+        d.add(String(8, height - 12, _cell(title)[:80],
+                     fontName="Helvetica-Bold", fontSize=10, fillColor=_INK))
+        top = height - 26
+
+    multi = len(names) > 1
+    if ctype == "line":
+        c = HorizontalLineChart()
+    else:
+        c = VerticalBarChart()
+    c.x = 38
+    c.y = 26
+    c.width = width - 70
+    # leave headroom at the top for a legend when there are multiple series
+    c.height = top - c.y - 6 - (14 if multi else 0)
+    c.data = data
+    c.categoryAxis.categoryNames = labels
+    c.categoryAxis.labels.fontName = "Helvetica"
+    c.categoryAxis.labels.fontSize = 7.5
+    c.categoryAxis.labels.angle = 0 if len(labels) <= 6 else 30
+    c.categoryAxis.labels.dy = -2
+    c.valueAxis.labels.fontName = "Helvetica"
+    c.valueAxis.labels.fontSize = 7.5
+    flat = [v for row in data for v in row]
+    lo, hi = min(flat), max(flat)
+    c.valueAxis.valueMin = 0 if lo >= 0 else lo * 1.1
+    c.valueAxis.valueMax = hi * 1.15 if hi > 0 else 1
+    for i in range(len(data)):
+        col = _CHART_COLORS[i % len(_CHART_COLORS)]
+        if ctype == "line":
+            c.lines[i].strokeColor = col
+            c.lines[i].strokeWidth = 2
+        else:
+            c.bars[i].fillColor = col
+            c.bars[i].strokeColor = colors.white
+    d.add(c)
+
+    if multi:
+        leg = Legend()
+        leg.x = c.x + 4
+        leg.y = c.y + c.height + 12     # sits above the plot, clear of x-axis labels
+        leg.alignment = "right"
+        leg.fontName = "Helvetica"
+        leg.fontSize = 8
+        leg.dxTextSpace = 5
+        leg.columnMaximum = 1
+        leg.boxAnchor = "nw"
+        leg.deltax = 78
+        leg.colorNamePairs = [
+            (_CHART_COLORS[i % len(_CHART_COLORS)], names[i]) for i in range(len(names))
+        ]
+        d.add(leg)
+    return d
+
+
+def _auto_chart_from_table(tbl: dict) -> dict | None:
+    """Build a chart spec from a numeric multi-row table when the model didn't
+    supply one — so every multi-year table gets a visual."""
+    cols = tbl.get("columns") or []
+    rows = tbl.get("rows") or []
+    if len(cols) < 2 or len(rows) < 3:
+        return None
+    labels = [_cell(r[0]) for r in rows if r]
+    series = []
+    for ci in range(1, len(cols)):
+        vals = [_to_num(r[ci]) if ci < len(r) else None for r in rows]
+        if sum(1 for v in vals if v is not None) >= 3:
+            series.append({"name": _cell(cols[ci]), "data": vals})
+    if not series:
+        return None
+    # A few series of the same metric over years → line; otherwise bars.
+    ctype = "line" if len(labels) >= 4 else "bar"
+    return {"type": ctype, "title": "", "x": labels, "series": series[:4]}
+
+
+def _chart_flowable(chart: dict):
+    d = _chart_drawing(chart)
+    return d
+
+
 def _slug(title: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", (title or "report").lower()).strip("-")
     return (s or "report")[:60]
@@ -207,22 +342,45 @@ def build_report_pdf(spec: dict) -> tuple[Path, str, str]:
     flow: list = [Paragraph(_inline(title), st["title"])]
     if subtitle:
         flow.append(Paragraph(_inline(subtitle), st["subtitle"]))
-    flow.append(Paragraph(now.strftime("%d %B %Y"), st["meta"]))
-    flow.append(Spacer(1, 6 * mm))
+    flow.append(Paragraph(now.strftime("%d %B %Y") + "  ·  Digby · Oil India Intelligence", st["meta"]))
+    flow.append(Spacer(1, 5 * mm))
+
+    # Contents list (helps a multi-page report read as a document).
+    headings = [s.get("heading") for s in sections if isinstance(s, dict) and s.get("heading")]
+    if len(headings) >= 4:
+        flow.append(Paragraph("Contents", st["h2"]))
+        flow.append(ListFlowable(
+            [ListItem(Paragraph(_inline(h), st["bullet"]), leftIndent=6) for h in headings],
+            bulletType="1", leftIndent=14, spaceAfter=6,
+        ))
+        flow.append(Spacer(1, 3 * mm))
 
     for sec in sections:
         if not isinstance(sec, dict):
             continue
+        # Keep a section's heading with the start of its content.
+        block: list = []
         if sec.get("heading"):
-            flow.append(Paragraph(_inline(sec["heading"]), st["h2"]))
-        flow.extend(_body_flowables(sec.get("body", ""), st))
+            block.append(Paragraph(_inline(sec["heading"]), st["h2"]))
+        block.extend(_body_flowables(sec.get("body", ""), st))
+        flow.extend(block)
         if sec.get("table"):
             t = _table_flowable(sec["table"], st)
             if t is not None:
-                flow.append(Spacer(1, 1 * mm))
+                flow.append(Spacer(1, 1.5 * mm))
                 flow.append(t)
+        # Chart: explicit spec, else auto-generated from a numeric table.
+        chart = sec.get("chart")
+        if not chart and sec.get("table"):
+            chart = _auto_chart_from_table(sec["table"])
+        if chart:
+            drawing = _chart_flowable(chart)
+            if drawing is not None:
+                flow.append(Spacer(1, 2.5 * mm))
+                flow.append(drawing)
         if sec.get("note"):
             flow.append(Paragraph("Source / note: " + _inline(sec["note"]), st["note"]))
+        flow.append(Spacer(1, 2 * mm))
 
     doc.build(flow, onFirstPage=_header_footer, onLaterPages=_header_footer)
     logger.info(f"[report] built {filename} ({path.stat().st_size} bytes)")

@@ -445,17 +445,19 @@ async def generate_report(
     title: Annotated[str, "Report title, e.g. 'OIL India — Production & Reserves Report (FY2025-26)'."],
     sections: Annotated[
         list,
-        "Ordered list of section objects. Each section is a dict with: "
-        "`heading` (str) and `facts` — the section's raw material as a list of "
-        "terse data points / source-tagged figures (e.g. "
+        "Ordered list of section objects (aim for 6–8 for a 5–6 page report). "
+        "Each section is a dict with: `heading` (str); `facts` — the section's "
+        "raw material as 3–6 terse, source-tagged data points (e.g. "
         "[\"Crude FY2024-25: 3.46 MMT (AR-25)\", \"FY2023-24: 3.13 MMT\", "
-        "\"YoY +10.5% (compute)\"]). The server expands `facts` into polished "
-        "prose IN PARALLEL — so pass facts, do NOT write full paragraphs "
-        "yourself (that is what makes reports slow). Optional per section: "
-        "`table` ({\"columns\": [str], \"rows\": [[cell,...]]}) for multi-year / "
-        "multi-metric data, and `note` (str — the source citation). You MAY "
-        "still pass a ready-written `body` instead of `facts` if you prefer; a "
-        "section with a non-empty `body` is used verbatim and not re-expanded.",
+        "\"YoY +10.5% (compute)\"]) which the server expands into polished prose "
+        "IN PARALLEL (do NOT write paragraphs yourself); `table` "
+        "({\"columns\": [str], \"rows\": [[cell,...]]}) for any multi-year / "
+        "multi-metric data — a CHART is auto-generated from each table; an "
+        "optional explicit `chart` ({\"type\": \"line\"|\"bar\", \"title\": str, "
+        "\"x\": [labels], \"series\": [{\"name\": str, \"data\": [numbers]}]}) to "
+        "force a specific view; and `note` (str — the source citation). You MAY "
+        "pass a ready `body` instead of `facts`; a non-empty `body` is used "
+        "verbatim and not re-expanded.",
     ],
     subtitle: Annotated[str, "Optional one-line subtitle / status line."] = "",
 ) -> dict:
