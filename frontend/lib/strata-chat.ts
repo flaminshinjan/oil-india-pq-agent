@@ -74,6 +74,14 @@ export function saveThreads(t: Thread[]): void {
   }
 }
 
+/** Mirror of the backend's report-intent detector — lets the UI show the
+ *  "building your report" loader for the whole turn, not just the final call. */
+export function looksLikeReport(text: string): boolean {
+  return /\bpdf\b|\b(?:generate|create|make|build|produce|prepare|draft|download|export|put together|give me|i\s+(?:need|want))\b[^.?!\n]{0,40}?\b(?:report|briefing|brief|deck|document|write[- ]?up)\b/i.test(
+    text || '',
+  );
+}
+
 export function relTime(ts: number): string {
   const d = Math.floor((Date.now() - ts) / 1000);
   if (d < 60) return 'just now';

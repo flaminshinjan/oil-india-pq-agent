@@ -13,6 +13,7 @@ import {
   applyWireEvent,
   askStrata,
   loadThreads,
+  looksLikeReport,
   relTime,
   saveThreads,
   type AskMessage as Msg,
@@ -408,9 +409,16 @@ export function ChatPanel({ chips, domain, onOpenSource, mobileOpen, onMobileClo
       <div className="chat-pane-body">
         {hasMessages ? (
           <div className="chat-scroll" ref={scrollRef}>
-            {messages.map((m, i) => (
-              <AskMessage key={i} msg={m} onOpenSource={onOpenSource} />
-            ))}
+            {messages.map((m, i) => {
+              const prev = i > 0 ? messages[i - 1] : null;
+              const reportPending =
+                m.role === 'ai' && m.streaming && prev?.role === 'user'
+                  ? looksLikeReport(prev.text || '')
+                  : false;
+              return (
+                <AskMessage key={i} msg={m} onOpenSource={onOpenSource} reportPending={reportPending} />
+              );
+            })}
           </div>
         ) : (
           <div className="chat-empty">

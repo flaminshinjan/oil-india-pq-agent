@@ -8,7 +8,7 @@
  * the legacy /chat — so tables, lists, **bold**, and `code` all render
  * properly. Tool chips and citation pills reuse the chat primitives.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -24,9 +24,12 @@ type ToolBlock = Extract<AssistantBlock, { kind: 'tool' }>;
 interface AskMessageProps {
   msg: AskMsg;
   onOpenSource?: (filename: string) => void;
+  /** True while a report-intent turn is still streaming and the PDF hasn't
+   *  arrived yet — shows the "building your report" loader for the whole wait. */
+  reportPending?: boolean;
 }
 
-export function AskMessage({ msg, onOpenSource }: AskMessageProps) {
+export function AskMessage({ msg, onOpenSource, reportPending }: AskMessageProps) {
   if (msg.role === 'user') {
     return (
       <div className={'msg msg-user' + (msg.via === 'voice' ? ' is-voice' : '')}>
@@ -49,7 +52,7 @@ export function AskMessage({ msg, onOpenSource }: AskMessageProps) {
       </div>
     );
   }
-  return <AiMessage msg={msg} onOpenSource={onOpenSource} />;
+  return <AiMessage msg={msg} onOpenSource={onOpenSource} reportPending={reportPending} />;
 }
 
 function VoiceBadge() {
@@ -61,9 +64,14 @@ function VoiceBadge() {
   );
 }
 
-function AiMessage({ msg, onOpenSource }: { msg: Extract<AskMsg, { role: 'ai' }>; onOpenSource?: (f: string) => void }) {
+function AiMessage({ msg, onOpenSource, reportPending }: { msg: Extract<AskMsg, { role: 'ai' }>; onOpenSource?: (f: string) => void; reportPending?: boolean }) {
   const blocks = msg.blocks;
   const fullText = blocksToText(blocks);
+  // Show the building loader through the whole report turn — but not once the
+  // generate_report block exists (renderBlocks handles that → its own loader,
+  // then the download card).
+  const hasReportBlock = blocks.some(b => b.kind === 'tool' && b.name === 'generate_report');
+  const showBuilding = !!reportPending && msg.streaming && !hasReportBlock;
 
   return (
     <div className={'msg msg-ai' + (msg.via === 'voice' ? ' is-voice' : '')}>
@@ -75,13 +83,14 @@ function AiMessage({ msg, onOpenSource }: { msg: Extract<AskMsg, { role: 'ai' }>
             spoken reply
           </div>
         )}
-        {blocks.length === 0 && msg.streaming ? (
+        {blocks.length === 0 && msg.streaming && !showBuilding ? (
           <div className="msg-bubble msg-typing">
             <span className="answer-typing"><i/><i/><i/></span>
           </div>
         ) : (
           <div className="msg-bubble msg-rich">
             {renderBlocks(blocks, msg.streaming)}
+            {showBuilding && <ReportBuilding />}
           </div>
         )}
 
@@ -114,15 +123,25 @@ function renderBlocks(blocks: AssistantBlock[], streaming: boolean) {
 
   blocks.forEach((b, i) => {
     if (b.kind === 'tool') {
-      const rurl = (b.result as any)?.report_url;
-      if (b.name === 'generate_report' && rurl) {
+      if (b.name === 'generate_report') {
         flush(`b${i}`);
-        out.push(
-          <ReportDownload key={`rep-${i}`}
-            url={rurl as string}
-            filename={((b.result as any)?.filename as string) || 'digby-report.pdf'}
-            title={((b.result as any)?.title as string) || 'Report'} />,
-        );
+        const rurl = (b.result as any)?.report_url;
+        if (rurl) {
+          out.push(
+            <ReportDownload key={`rep-${i}`}
+              url={rurl as string}
+              filename={((b.result as any)?.filename as string) || 'digby-report.pdf'}
+              title={((b.result as any)?.title as string) || 'Report'} />,
+          );
+        } else if (b.status === 'error') {
+          out.push(
+            <div className="report-building report-building-err" key={`rbe-${i}`}>
+              Report generation failed — please try again.
+            </div>,
+          );
+        } else {
+          out.push(<ReportBuilding key={`rb-${i}`} />);
+        }
       } else {
         toolBuf.push(b);
       }
@@ -138,6 +157,39 @@ function renderBlocks(blocks: AssistantBlock[], streaming: boolean) {
   });
   flush('tail');
   return out;
+}
+
+const BUILD_MSGS = [
+  'Gathering OIL data across every source…',
+  'Cross-checking the figures…',
+  'Computing year-on-year trends…',
+  'Writing the analysis…',
+  'Drawing charts & graphs…',
+  'Laying out the tables…',
+  'Typesetting your report…',
+  'Adding the finishing touches…',
+];
+
+function ReportBuilding() {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setI(v => (v + 1) % BUILD_MSGS.length), 1500);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div className="report-building" role="status" aria-live="polite">
+      <span className="report-building-ico" aria-hidden>
+        <span className="report-building-spin" />
+        <Icon name="image" size={15} />
+      </span>
+      <span className="report-building-text">
+        <span className="report-building-title">Building your report</span>
+        {/* key=i restarts the fade each message */}
+        <span className="report-building-msg" key={i}>{BUILD_MSGS[i]}</span>
+      </span>
+      <span className="report-building-dots" aria-hidden><i/><i/><i/></span>
+    </div>
+  );
 }
 
 function ReportDownload({ url, filename, title }: { url: string; filename: string; title: string }) {
